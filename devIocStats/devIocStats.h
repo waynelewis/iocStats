@@ -28,7 +28,9 @@
 #define FD_TYPE		2
 #define CA_TYPE		3
 #define STATIC_TYPE	4
-#define TOTAL_TYPES	5
+#define DAEMON_TYPE	5
+//#define TOTAL_TYPES	5
+#define TOTAL_TYPES	6
 
 /* Names of environment variables (may be redefined in OSD include) */
 #define STARTUP  "STARTUP"
@@ -48,6 +50,22 @@ typedef struct {
     double numBlocksAlloc;
     double maxBlockSizeFree;
 } memInfo;
+
+typedef struct {
+    int ntpVersionNumber;
+    int ntpLeapSecond;
+    int ntpStratum;
+    int ntpPrecision;
+    double ntpRootDelay;
+    double ntpRootDispersion;
+    int ntpTC;
+    int ntpMinTC;
+    double ntpOffset;
+    double ntpFrequency;
+    double ntpSystemJitter;
+    double ntpClockJitter;
+    double ntpClockWander;
+} ntpStatus;
 
 typedef struct {
     int used;
@@ -118,3 +136,8 @@ extern int devIocStatsGetPwd (char **pval);
 extern int devIocStatsGetHostname (char **pval);
 extern int devIocStatsGetPID (double *proc_id);
 extern int devIocStatsGetPPID (double *proc_id);
+
+/* NTP status */
+extern int devIocStatsInitNtpStats (void);
+extern int devIocStatsGetNtpStats (ntpStatus *pval);
+

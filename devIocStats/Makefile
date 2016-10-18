@@ -44,6 +44,7 @@ SRCS += osdBootInfo.c
 SRCS += osdSystemInfo.c
 SRCS += osdHostInfo.c
 SRCS += osdPIDInfo.c
+SRCS += osdNtpStats.c
 
 OBJS_vxWorks += osdCpuUsageTest.o
 

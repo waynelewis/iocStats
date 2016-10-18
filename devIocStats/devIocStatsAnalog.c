@@ -83,6 +83,9 @@
                 workspace_alloc_bytes - number of RAM workspace allocated bytes
                 workspace_free_bytes  - number of RAM workspace free bytes
                 workspace_total_bytes - number of RAM workspace total bytes
+        ntp_version - NTP version number
+        ntp_stratum - NTP server stratum
+        ntp_system_jitter - NTP system jitter
 
 	ai (DTYP="IOC stats clusts"):
                 clust_info <pool> <index> <type> where:
@@ -104,9 +107,11 @@
 		20 - cpu scan rate
 		10 - fd scan rate
 		15 - CA scan rate
+		20 - daemon scan rate
 */
 
 #include <string.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include <epicsThread.h>
@@ -212,6 +217,9 @@ static void statsIFOErrs(double *);
 static void statsRecords(double *);
 static void statsPID(double *);
 static void statsPPID(double *);
+static void statsNTPVersion(double *);
+static void statsNTPStratum(double *);
+static void statsNTPSystemJitter(double *);
 
 struct {
 	char *name;
@@ -221,6 +229,8 @@ struct {
 	{ "cpu_scan_rate",	20.0 },
 	{ "fd_scan_rate",	10.0 },
 	{ "ca_scan_rate", 	15.0 },
+	{ "static_scan_rate", 	0.0 },
+	{ "daemon_scan_rate", 	20.0 },
 	{ NULL,			0.0  },
 };
 
@@ -252,6 +262,9 @@ static validGetParms statsGetParms[]={
 	{ "records",			statsRecords,           STATIC_TYPE },
 	{ "proc_id",			statsPID,               STATIC_TYPE },
 	{ "parent_proc_id",		statsPPID,              STATIC_TYPE },
+    { "ntp_version",        statsNTPVersion,        DAEMON_TYPE },
+    { "ntp_stratum",        statsNTPStratum,        DAEMON_TYPE },
+    { "ntp_system_jitter",  statsNTPSystemJitter,   DAEMON_TYPE },
 	{ NULL,NULL,0 }
 };
 
@@ -264,6 +277,7 @@ epicsExportAddress(dset,devAiClusts);
 
 static memInfo meminfo = {0.0,0.0,0.0,0.0,0.0,0.0};
 static memInfo workspaceinfo = {0.0,0.0,0.0,0.0,0.0,0.0};
+static ntpStatus ntpstatus = {0,0,0,0,0.0,0.0,0,0,0.0,0.0,0.0,0.0,0.0};
 static scanInfo scan[TOTAL_TYPES] = {{0}};
 static fdInfo fdusage = {0,0};
 static loadInfo loadinfo = {1,0.,0.};
@@ -328,16 +342,16 @@ static void scan_time(int type)
       }
       case LOAD_TYPE:
       {
-	loadInfo loadinfo_local = {1,0.,0.};
-	int      susptasknumber_local = 0;
-        devIocStatsGetCpuUsage(&loadinfo_local);
-        devIocStatsGetCpuUtilization(&loadinfo_local);
-        devIocStatsGetSuspTasks(&susptasknumber_local);
-        epicsMutexLock(scan_mutex);
-	loadinfo       = loadinfo_local;
-	susptasknumber = susptasknumber_local;
-        epicsMutexUnlock(scan_mutex);
-	break;
+          loadInfo loadinfo_local = {1,0.,0.};
+          int      susptasknumber_local = 0;
+          devIocStatsGetCpuUsage(&loadinfo_local);
+          devIocStatsGetCpuUtilization(&loadinfo_local);
+          devIocStatsGetSuspTasks(&susptasknumber_local);
+          epicsMutexLock(scan_mutex);
+          loadinfo       = loadinfo_local;
+          susptasknumber = susptasknumber_local;
+          epicsMutexUnlock(scan_mutex);
+          break;
       }
       case FD_TYPE:
       {
@@ -358,6 +372,15 @@ static void scan_time(int type)
         cainfo_connex  = cainfo_connex_local;
         epicsMutexUnlock(scan_mutex);
 	break;
+      }
+      case DAEMON_TYPE:
+      {
+          ntpStatus ntpstatus_local = {0,0,0,0,0.0,0.0,0,0,0.0,0.0,0.0,0.0,0.0};
+          devIocStatsGetNtpStats(&ntpstatus_local);
+          epicsMutexLock(scan_mutex);
+          ntpstatus = ntpstatus_local;
+          epicsMutexUnlock(scan_mutex);
+          break;
       }
       default:
         break;
@@ -738,4 +761,16 @@ static void statsPPID(double *val)
 {
     *val = 0;
     devIocStatsGetPPID(val);
+}
+static void statsNTPVersion(double* val)
+{
+    *val = (double)ntpstatus.ntpVersionNumber;
+}
+static void statsNTPStratum(double* val)
+{
+    *val = (double)ntpstatus.ntpStratum;
+}
+static void statsNTPSystemJitter(double* val)
+{
+    *val = (double)ntpstatus.ntpSystemJitter;
 }

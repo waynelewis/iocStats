@@ -1,0 +1,29 @@
+# NTP information
+#
+# NTP version number
+record(ai, "$(IOCNAME):NTP_VERSION") {
+  field(DESC, "NTP version number")
+  field(SCAN, "I/O Intr")
+  #field(SCAN, "10 second")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_version")
+}
+
+# NTP version number
+record(ai, "$(IOCNAME):NTP_STRATUM") {
+  field(DESC, "NTP server stratum")
+  field(SCAN, "I/O Intr")
+  #field(SCAN, "10 second")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_stratum")
+}
+
+# NTP version number
+record(ai, "$(IOCNAME):NTP_SYS_JITTER") {
+  field(DESC, "NTP system jitter")
+  field(SCAN, "I/O Intr")
+  #field(SCAN, "10 second")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_system_jitter")
+}
+

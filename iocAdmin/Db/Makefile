@@ -25,6 +25,7 @@ DB += iocAdminVxWorks.db
 DB += iocAdminSoft.db
 DB += iocAdminRTEMS.db
 DB += iocAdminScanMon.db
+DB += iocNTP.db
 
 #
 #----------------------------------------------------
