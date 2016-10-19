@@ -4,26 +4,103 @@
 record(ai, "$(IOCNAME):NTP_VERSION") {
   field(DESC, "NTP version number")
   field(SCAN, "I/O Intr")
-  #field(SCAN, "10 second")
   field(DTYP, "IOC stats")
   field(INP, "@ntp_version")
 }
 
-# NTP version number
+# NTP leap second
+record(ai, "$(IOCNAME):NTP_LEAP_SEC") {
+  field(DESC, "NTP leap second status")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_leap_second")
+}
+
+# NTP stratum
 record(ai, "$(IOCNAME):NTP_STRATUM") {
   field(DESC, "NTP server stratum")
   field(SCAN, "I/O Intr")
-  #field(SCAN, "10 second")
   field(DTYP, "IOC stats")
   field(INP, "@ntp_stratum")
 }
 
-# NTP version number
+# NTP precision
+record(ai, "$(IOCNAME):NTP_PRECISION") {
+  field(DESC, "NTP precision")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_precision")
+}
+
+# NTP root delay 
+record(ai, "$(IOCNAME):NTP_ROOT_DELAY") {
+  field(DESC, "NTP root delay")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_root_delay")
+}
+
+# NTP root dispersion
+record(ai, "$(IOCNAME):NTP_ROOT_DISP") {
+  field(DESC, "NTP root dispersion")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_root_dispersion")
+}
+
+# NTP time constant
+record(ai, "$(IOCNAME):NTP_TC") {
+  field(DESC, "NTP time constant")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_tc")
+}
+
+# NTP minimum time constant
+record(ai, "$(IOCNAME):NTP_MIN_TC") {
+  field(DESC, "NTP minimum time constant")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_min_tc")
+}
+
+# NTP offset
+record(ai, "$(IOCNAME):NTP_OFFSET") {
+  field(DESC, "NTP offset")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_offset")
+}
+
+# NTP frequency
+record(ai, "$(IOCNAME):NTP_FREQUENCY") {
+  field(DESC, "NTP frequency")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_frequency")
+}
+
+# NTP system jitter
 record(ai, "$(IOCNAME):NTP_SYS_JITTER") {
   field(DESC, "NTP system jitter")
   field(SCAN, "I/O Intr")
-  #field(SCAN, "10 second")
   field(DTYP, "IOC stats")
   field(INP, "@ntp_system_jitter")
+}
+
+# NTP clock jitter
+record(ai, "$(IOCNAME):NTP_CLK_JITTER") {
+  field(DESC, "NTP clock jitter")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_clock_jitter")
+}
+
+# NTP clock wander
+record(ai, "$(IOCNAME):NTP_CLK_WANDER") {
+  field(DESC, "NTP clock wander")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_clock_wander")
 }
 

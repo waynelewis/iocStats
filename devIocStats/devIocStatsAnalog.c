@@ -83,31 +83,41 @@
                 workspace_alloc_bytes - number of RAM workspace allocated bytes
                 workspace_free_bytes  - number of RAM workspace free bytes
                 workspace_total_bytes - number of RAM workspace total bytes
-        ntp_version - NTP version number
-        ntp_stratum - NTP server stratum
-        ntp_system_jitter - NTP system jitter
+        ntp_version         - NTP version number
+        ntp_leap_second     - NTP leap second status
+        ntp_stratum         - NTP server stratum
+        ntp_precision       - NTP precision
+        ntp_root_delay      - NTP root delay
+        ntp_root_dispersion - NTP root dispersion
+        ntp_tc              - NTP time constant
+        ntp_min_tc          - NTP minimum time constant
+        ntp_offset          - NTP offset
+        ntp_frequency       - NTP frequency
+        ntp_system_jitter   - NTP system jitter
+        ntp_clock_jitter    - NTP clock jitter
+        ntp_clock_wander    - NTP clock wander
 
-	ai (DTYP="IOC stats clusts"):
-                clust_info <pool> <index> <type> where:
-		   pool		 - 0 (data) or 1 (system)
-		   index         - index into cluster array
-		   type		 - 0=size, 1=clusters, 2=free, 3=usage
+        ai (DTYP="IOC stats clusts"):
+        clust_info <pool> <index> <type> where:
+        pool		 - 0 (data) or 1 (system)
+        index         - index into cluster array
+        type		 - 0=size, 1=clusters, 2=free, 3=usage
 
 
-	ao:
-		memoryScanRate	 - max rate at which new memory stats can be read
-		fdScanRate	 - max rate at which file descriptors can be counted
-		cpuScanRate	 - max rate at which cpu load can be calculated
-		caConnScanRate	 - max rate at which CA connections can be calculated
+ao:
+memoryScanRate	 - max rate at which new memory stats can be read
+fdScanRate	 - max rate at which file descriptors can be counted
+cpuScanRate	 - max rate at which cpu load can be calculated
+caConnScanRate	 - max rate at which CA connections can be calculated
 
-	* scan rates are all in seconds
+ * scan rates are all in seconds
 
-	default rates:
-		10 - memory scan rate
-		20 - cpu scan rate
-		10 - fd scan rate
-		15 - CA scan rate
-		20 - daemon scan rate
+ default rates:
+ 10 - memory scan rate
+ 20 - cpu scan rate
+ 10 - fd scan rate
+ 15 - CA scan rate
+ 20 - daemon scan rate
 */
 
 #include <string.h>
@@ -133,29 +143,29 @@
 
 struct aStats
 {
-	long		number;
-	DEVSUPFUN	report;
-	DEVSUPFUN	init;
-	DEVSUPFUN	init_record;
-	DEVSUPFUN	get_ioint_info;
-	DEVSUPFUN	read_write;
-	DEVSUPFUN	special_linconv;
+    long		number;
+    DEVSUPFUN	report;
+    DEVSUPFUN	init;
+    DEVSUPFUN	init_record;
+    DEVSUPFUN	get_ioint_info;
+    DEVSUPFUN	read_write;
+    DEVSUPFUN	special_linconv;
 };
 typedef struct aStats aStats;
 
 
 struct pvtArea
 {
-	int index;
-	int type;
+    int index;
+    int type;
 };
 typedef struct pvtArea pvtArea;
 
 struct pvtClustArea
 {
-	int pool;
-	int size;
-	int elem;
+    int pool;
+    int size;
+    int elem;
 };
 typedef struct pvtClustArea pvtClustArea;
 
@@ -163,19 +173,19 @@ typedef void (*statGetFunc)(double*);
 
 struct validGetParms
 {
-	char* name;
-	statGetFunc func;
-	int type;
+    char* name;
+    statGetFunc func;
+    int type;
 };
 typedef struct validGetParms validGetParms;
 
 struct scanInfo
 {
-	IOSCANPVT ioscan;
-	epicsTimerId  wd;
-	volatile int total;			/* total users connected */
-	volatile int on;			/* watch dog on? */
-	double rate_sec;	/* seconds */
+    IOSCANPVT ioscan;
+    epicsTimerId  wd;
+    volatile int total;			/* total users connected */
+    volatile int on;			/* watch dog on? */
+    double rate_sec;	/* seconds */
 };
 typedef struct scanInfo scanInfo;
 
@@ -218,8 +228,18 @@ static void statsRecords(double *);
 static void statsPID(double *);
 static void statsPPID(double *);
 static void statsNTPVersion(double *);
+static void statsNTPLeapSecond(double *);
 static void statsNTPStratum(double *);
+static void statsNTPPrecision(double *);
+static void statsNTPRootDelay(double *);
+static void statsNTPRootDispersion(double *);
+static void statsNTPTC(double *);
+static void statsNTPMinTC(double *);
+static void statsNTPOffset(double *);
+static void statsNTPFrequency(double *);
 static void statsNTPSystemJitter(double *);
+static void statsNTPClockJitter(double *);
+static void statsNTPClockWander(double *);
 
 struct {
 	char *name;
@@ -263,8 +283,18 @@ static validGetParms statsGetParms[]={
 	{ "proc_id",			statsPID,               STATIC_TYPE },
 	{ "parent_proc_id",		statsPPID,              STATIC_TYPE },
     { "ntp_version",        statsNTPVersion,        DAEMON_TYPE },
+    { "ntp_leap_second",    statsNTPLeapSecond,     DAEMON_TYPE },
     { "ntp_stratum",        statsNTPStratum,        DAEMON_TYPE },
+    { "ntp_precision",      statsNTPPrecision,      DAEMON_TYPE },
+    { "ntp_root_delay",     statsNTPRootDelay,      DAEMON_TYPE },
+    { "ntp_root_dispersion",statsNTPRootDispersion, DAEMON_TYPE },
+    { "ntp_tc",             statsNTPTC,             DAEMON_TYPE },
+    { "ntp_min_tc",         statsNTPMinTC,          DAEMON_TYPE },
+    { "ntp_offset",         statsNTPOffset,         DAEMON_TYPE },
+    { "ntp_frequency",      statsNTPFrequency,      DAEMON_TYPE },
     { "ntp_system_jitter",  statsNTPSystemJitter,   DAEMON_TYPE },
+    { "ntp_clock_jitter",   statsNTPClockJitter,    DAEMON_TYPE },
+    { "ntp_clock_wander",   statsNTPClockWander,    DAEMON_TYPE },
 	{ NULL,NULL,0 }
 };
 
@@ -766,11 +796,51 @@ static void statsNTPVersion(double* val)
 {
     *val = (double)ntpstatus.ntpVersionNumber;
 }
+static void statsNTPLeapSecond(double* val)
+{
+    *val = (double)ntpstatus.ntpLeapSecond;
+}
 static void statsNTPStratum(double* val)
 {
     *val = (double)ntpstatus.ntpStratum;
 }
+static void statsNTPPrecision(double* val)
+{
+    *val = (double)ntpstatus.ntpPrecision;
+}
+static void statsNTPRootDelay(double* val)
+{
+    *val = (double)ntpstatus.ntpRootDelay;
+}
+static void statsNTPRootDispersion(double* val)
+{
+    *val = (double)ntpstatus.ntpRootDispersion;
+}
+static void statsNTPTC(double* val)
+{
+    *val = (double)ntpstatus.ntpTC;
+}
+static void statsNTPMinTC(double* val)
+{
+    *val = (double)ntpstatus.ntpMinTC;
+}
+static void statsNTPOffset(double* val)
+{
+    *val = (double)ntpstatus.ntpOffset;
+}
+static void statsNTPFrequency(double* val)
+{
+    *val = (double)ntpstatus.ntpFrequency;
+}
 static void statsNTPSystemJitter(double* val)
 {
     *val = (double)ntpstatus.ntpSystemJitter;
+}
+static void statsNTPClockJitter(double* val)
+{
+    *val = (double)ntpstatus.ntpClockJitter;
+}
+static void statsNTPClockWander(double* val)
+{
+    *val = (double)ntpstatus.ntpClockWander;
 }

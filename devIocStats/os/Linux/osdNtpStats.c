@@ -92,22 +92,22 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     //const char NTP_VERSION[] = "version=";
     //const char NTP_PROCESSOR[] = "processor=";
     //const char NTP_SYSTEM[] = "system=";
-    //const char NTP_LEAP[] = "leap=";
+    const char NTP_LEAP[] = "leap=";
     const char NTP_STRATUM[] = "stratum=";
-    //const char NTP_PRECISION[] = "precision=";
-    //const char NTP_ROOT_DELAY[] = "rootdelay=";
-    //const char NTP_ROOT_DISPERSION[] = "rootdisp=";
+    const char NTP_PRECISION[] = "precision=";
+    const char NTP_ROOT_DELAY[] = "rootdelay=";
+    const char NTP_ROOT_DISPERSION[] = "rootdisp=";
     //const char NTP_REF_ID[] = "refid=";
     //const char NTP_REF_TIME[] = "reftime=";
     //const char NTP_CLOCK[] = "clock=";
     //const char NTP_PEER[] = "peer=";
-    //const char NTP_TC[] = "tc=";
-    //const char NTP_MINTC[] = "mintc=";
-    //const char NTP_OFFSET[] = "offset=";
-    //const char NTP_FREQUENCY[] = "frequency=";
+    const char NTP_TC[] = "tc=";
+    const char NTP_MINTC[] = "mintc=";
+    const char NTP_OFFSET[] = "offset=";
+    const char NTP_FREQUENCY[] = "frequency=";
     const char NTP_SYS_JITTER[] = "sys_jitter=";
-    //const char NTP_CLOCK_JITTER[] = "clk_jitter=";
-    //const char NTP_CLOCK_WANDER[] = "clk_wander=";
+    const char NTP_CLOCK_JITTER[] = "clk_jitter=";
+    const char NTP_CLOCK_WANDER[] = "clk_wander=";
     
     /* Variables used to parse the NTP response string */
     char *substr;
@@ -174,7 +174,17 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     ntp_version = (ntp_message.ver_mode & VER_MASK) >> VER_SHIFT;
     pval->ntpVersionNumber = ntp_version;
 
-    /* Extract the stratum */
+    /* Leap second status */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_LEAP)))
+    {
+        substr += sizeof(NTP_LEAP) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpLeapSecond = (int)(atoi(ntp_param_value));
+    }
+
+    /* Stratum */
     strncpy(buffer, ntp_message.data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_STRATUM)))
     {
@@ -184,7 +194,77 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
         pval->ntpStratum = (double)(atof(ntp_param_value));
     }
 
-    /* Extract the system jitter */
+    /* Precision */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_PRECISION)))
+    {
+        substr += sizeof(NTP_PRECISION) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpPrecision = (int)(atoi(ntp_param_value));
+    }
+
+    /* Root delay */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_ROOT_DELAY)))
+    {
+        substr += sizeof(NTP_ROOT_DELAY) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpRootDelay = (double)(atof(ntp_param_value));
+    }
+
+    /* Root dispersion */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_ROOT_DISPERSION)))
+    {
+        substr += sizeof(NTP_ROOT_DISPERSION) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpRootDispersion = (double)(atof(ntp_param_value));
+    }
+
+    /* Time constant */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_TC)))
+    {
+        substr += sizeof(NTP_TC) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpTC = (int)(atoi(ntp_param_value));
+    }
+
+    /* Minimum time constant */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_MINTC)))
+    {
+        substr += sizeof(NTP_MINTC) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpMinTC = (int)(atoi(ntp_param_value));
+    }
+
+    /* Offset */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_OFFSET)))
+    {
+        substr += sizeof(NTP_OFFSET) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpOffset = (double)(atof(ntp_param_value));
+    }
+
+    /* Frequency */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_FREQUENCY)))
+    {
+        substr += sizeof(NTP_FREQUENCY) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpFrequency = (double)(atof(ntp_param_value));
+    }
+
+    /* System jitter */
     strncpy(buffer, ntp_message.data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_SYS_JITTER)))
     {
@@ -192,6 +272,26 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
         ntp_param_value = strtok(substr, ",");
 
         pval->ntpSystemJitter = (double)(atof(ntp_param_value));
+    }
+
+    /* Clock jitter */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_CLOCK_JITTER)))
+    {
+        substr += sizeof(NTP_CLOCK_JITTER) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpClockJitter = (double)(atof(ntp_param_value));
+    }
+
+    /* Clock wander */
+    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_CLOCK_WANDER)))
+    {
+        substr += sizeof(NTP_CLOCK_WANDER) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpClockWander = (double)(atof(ntp_param_value));
     }
 
     return 0;
