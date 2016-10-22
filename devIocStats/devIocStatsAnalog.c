@@ -96,6 +96,8 @@
         ntp_system_jitter   - NTP system jitter
         ntp_clock_jitter    - NTP clock jitter
         ntp_clock_wander    - NTP clock wander
+        ntp_num_peers       - NTP number of potential peers 
+        ntp_num_good_peers  - NTP number of candidate peers
 
         ai (DTYP="IOC stats clusts"):
         clust_info <pool> <index> <type> where:
@@ -240,6 +242,8 @@ static void statsNTPFrequency(double *);
 static void statsNTPSystemJitter(double *);
 static void statsNTPClockJitter(double *);
 static void statsNTPClockWander(double *);
+static void statsNTPNumPeers(double *);
+static void statsNTPNumGoodPeers(double *);
 
 struct {
 	char *name;
@@ -295,6 +299,8 @@ static validGetParms statsGetParms[]={
     { "ntp_system_jitter",  statsNTPSystemJitter,   DAEMON_TYPE },
     { "ntp_clock_jitter",   statsNTPClockJitter,    DAEMON_TYPE },
     { "ntp_clock_wander",   statsNTPClockWander,    DAEMON_TYPE },
+    { "ntp_num_peers",      statsNTPNumPeers,       DAEMON_TYPE },
+    { "ntp_num_good_peers", statsNTPNumGoodPeers,   DAEMON_TYPE },
 	{ NULL,NULL,0 }
 };
 
@@ -843,4 +849,12 @@ static void statsNTPClockJitter(double* val)
 static void statsNTPClockWander(double* val)
 {
     *val = (double)ntpstatus.ntpClockWander;
+}
+static void statsNTPNumPeers(double* val)
+{
+    *val = (double)ntpstatus.ntpNumPeers;
+}
+static void statsNTPNumGoodPeers(double* val)
+{
+    *val = (double)ntpstatus.ntpNumGoodPeers;
 }

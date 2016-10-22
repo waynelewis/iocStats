@@ -32,26 +32,8 @@
 #include <string.h>
 
 #include <devIocStats.h>
-
-#define NTP_PORT 123
-
-#define NTP_ERROR -1
-
-/* 
- * This uses an NTP mode 6 control message. 
- */
-
-#define VER_MODE 0x16
-#define OP_CODE 0x02
-
-#define VER_MASK 0x38
-#define VER_SHIFT 2
-
-#define MORE_MASK 0x20
-#define ERROR_MASK 0x40
-#define RESPONSE_MASK 0x80
-
-#define DATA_SIZE 468
+#include "epicsTypes.h"
+#include "osdNtpStats.h"
 
 int devIocStatsInitNtpStats (void) {
     return 0;
@@ -59,31 +41,71 @@ int devIocStatsInitNtpStats (void) {
 
 int devIocStatsGetNtpStats (ntpStatus *pval)
 {
-    struct sockaddr_in ntp_socket;
-    struct in_addr address;
-    int sd;
+    struct ntp_control ntp_message;
     int ret;
-    fd_set fds;
-    struct timeval timeout_val;
-    FD_ZERO(&fds);
-    
-    /* NTP response message structure */
-    struct {
-        unsigned char ver_mode;
-        unsigned char op_code;
-        unsigned short sequence;
-        unsigned char status1;
-        unsigned char status2;
-        unsigned short association_id;
-        unsigned short offset;
-        unsigned short count;
-        char data[DATA_SIZE];
-        char authenticator[96];
-    } ntp_message;
 
-    char buffer[DATA_SIZE];
+    unsigned short association_ids[MAX_ASSOCIATION_IDS];
+    unsigned short peer_selections[MAX_ASSOCIATION_IDS];
+    int num_associations;
 
-    unsigned int ntp_version;
+    // Perform an NTP variable query to get the system level status
+    if (( ret = do_ntp_query(
+                    NTP_OP_READ_VAR, 
+                    SYS_ASSOCIATION_ID, 
+                    &ntp_message) != 0))
+        return ret;
+
+    parse_ntp_sys_vars(&ntp_message, pval);
+
+    // Perform an NTP status query to get the association IDs
+    if ((ret = get_association_ids(
+                    association_ids,
+                    peer_selections,
+                    &num_associations,
+                    MAX_ASSOCIATION_IDS) != 0))
+        return ret;
+
+    parse_ntp_associations(
+            association_ids,
+            peer_selections,
+            num_associations,
+            pval);
+
+    return NTP_NO_ERROR;
+
+}
+
+void parse_ntp_associations(
+        unsigned short *association_ids,
+        unsigned short *peer_selections,
+        int num_associations,
+        ntpStatus *pval)
+{
+    int i;
+    int num_good_peers;
+
+    pval->ntpNumPeers = num_associations;
+
+    // Count the number of peers at candidate level or above
+    num_good_peers = 0;
+
+    for (i = 0; i < num_associations; i++)
+        if (peer_selections[i] >= NTP_PEER_SEL_NOT_OUTLYER)
+            num_good_peers++;
+
+    pval->ntpNumGoodPeers = num_good_peers;
+}
+
+
+void parse_ntp_sys_vars(
+        struct ntp_control *ntp_message,
+        ntpStatus *pval)
+{
+    int ntp_version;
+    //int ntp_mode;
+    //int ntp_more_bit;
+    //int ntp_error_bit;
+    //int ntp_response;
 
     /* 
      * Define the character strings used to parse the NTP 
@@ -110,72 +132,16 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     const char NTP_CLOCK_WANDER[] = "clk_wander=";
     
     /* Variables used to parse the NTP response string */
+    char buffer[DATA_SIZE];
     char *substr;
     char *ntp_param_value;
 
-    /* Define the socket connection */
-    inet_aton("127.0.0.1", &address);
-    ntp_socket.sin_family = AF_INET;
-    ntp_socket.sin_addr = address;
-    ntp_socket.sin_port = htons(NTP_PORT);
-
-    /* Construct the NTP control message */
-    memset(&ntp_message, 0, sizeof(ntp_message));
-    ntp_message.ver_mode = VER_MODE;
-    ntp_message.op_code = OP_CODE;
-
-    /* Define the timeout */
-    timeout_val.tv_sec = 1;
-    timeout_val.tv_usec = 0;
-
-    /* Create the socket and send the message */
-    if ((sd = socket(PF_INET, SOCK_DGRAM, 0)) < 0)
-    {
-        printf("Socket create error\n");
-        return NTP_ERROR;
-    }
-
-    if (connect(sd, (struct sockaddr *)&ntp_socket, sizeof(ntp_socket)) < 0)
-    {
-        printf("Socket connect error\n");
-        return NTP_ERROR;
-    }
-
-    FD_SET(sd, &fds);
-
-    if (send(sd, &ntp_message, sizeof(ntp_message), 0) < 0)
-    {
-        printf("Send error\n");
-        return NTP_ERROR;
-    }
-
-    /* Wait for the response from the NTP daemon */
-    ret = select(sd+1, &fds, (fd_set *)0, (fd_set *)0, &timeout_val);
-    
-    if (ret == 0)
-    {
-        printf("Select 0 error\n");
-        return NTP_ERROR;
-    }
-
-    /* Read the response from the NTP daemon */
-    if ((ret = recv(sd, &ntp_message, sizeof(ntp_message), 0)) < 0)
-    {
-        printf("Select -1 error\n");
-        return NTP_ERROR;
-    }
-    
-    /* 
-     * If we got this far, we have a valid response packet from the 
-     * NTP daemon. 
-     */
-
     /* Extract the NTP version number */
-    ntp_version = (ntp_message.ver_mode & VER_MASK) >> VER_SHIFT;
+    ntp_version = (ntp_message->ver_mode & VER_MASK) >> VER_SHIFT;
     pval->ntpVersionNumber = ntp_version;
 
     /* Leap second status */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_LEAP)))
     {
         substr += sizeof(NTP_LEAP) - 1;
@@ -185,7 +151,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Stratum */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_STRATUM)))
     {
         substr += sizeof(NTP_STRATUM) - 1;
@@ -195,7 +161,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Precision */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_PRECISION)))
     {
         substr += sizeof(NTP_PRECISION) - 1;
@@ -205,7 +171,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Root delay */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_ROOT_DELAY)))
     {
         substr += sizeof(NTP_ROOT_DELAY) - 1;
@@ -215,7 +181,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Root dispersion */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_ROOT_DISPERSION)))
     {
         substr += sizeof(NTP_ROOT_DISPERSION) - 1;
@@ -225,7 +191,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Time constant */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_TC)))
     {
         substr += sizeof(NTP_TC) - 1;
@@ -235,7 +201,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Minimum time constant */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_MINTC)))
     {
         substr += sizeof(NTP_MINTC) - 1;
@@ -245,7 +211,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Offset */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_OFFSET)))
     {
         substr += sizeof(NTP_OFFSET) - 1;
@@ -255,7 +221,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Frequency */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_FREQUENCY)))
     {
         substr += sizeof(NTP_FREQUENCY) - 1;
@@ -265,7 +231,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* System jitter */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_SYS_JITTER)))
     {
         substr += sizeof(NTP_SYS_JITTER) - 1;
@@ -275,7 +241,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Clock jitter */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_CLOCK_JITTER)))
     {
         substr += sizeof(NTP_CLOCK_JITTER) - 1;
@@ -285,7 +251,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     }
 
     /* Clock wander */
-    strncpy(buffer, ntp_message.data, sizeof(buffer));
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
     if ((substr = strstr(buffer, NTP_CLOCK_WANDER)))
     {
         substr += sizeof(NTP_CLOCK_WANDER) - 1;
@@ -293,6 +259,119 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
 
         pval->ntpClockWander = (double)(atof(ntp_param_value));
     }
+}
+
+int do_ntp_query(
+        unsigned char op_code,
+        unsigned short association_id,
+        struct ntp_control *ntp_message
+        )
+{
+    struct sockaddr_in  ntp_socket;
+    struct in_addr address;
+    int sd;
+    int ret;
+    fd_set fds;
+    struct timeval timeout_val;
+    FD_ZERO(&fds);
+
+    // Set up the socket to the local NTP daemon
+    inet_aton("127.0.0.1", &address);
+    ntp_socket.sin_family = AF_INET;
+    ntp_socket.sin_addr = address;
+    ntp_socket.sin_port = htons(NTP_PORT);
+
+    /* Create the socket */
+    if ((sd = socket(PF_INET, SOCK_DGRAM, 0)) < 0)
+        return NTP_SOCKET_OPEN_ERROR;
+
+    if (connect(sd, (struct sockaddr *)&ntp_socket, sizeof(ntp_socket)) < 0)
+        return NTP_SOCKET_CONNECT_ERROR;
+
+    FD_SET(sd, &fds);
+
+    // Initialise the NTP control packet
+    memset(ntp_message, 0, sizeof(struct ntp_control));
+
+    // Populate the NTP control packet
+    ntp_message->ver_mode = NTP_VER_MODE;
+    ntp_message->op_code = op_code;
+    ntp_message->association_id = association_id;
+
+    timeout_val.tv_sec = 1;
+    timeout_val.tv_usec = 0;
+
+    // Send the request to the NTP daemon
+    if (send(sd, ntp_message, sizeof(*ntp_message), 0) < 0)
+        return NTP_COMMAND_SEND_ERROR;
+
+    // Wait for a response
+    ret = select(sd+1, &fds, (fd_set *)0, (fd_set *)0, &timeout_val);
+
+    if (ret == 0)
+        return NTP_TIMEOUT_ERROR;
+
+    if (ret == -1)
+        return NTP_SELECT_ERROR;
+
+    // Read the response
+    if ((ret = recv(sd, ntp_message, sizeof(*ntp_message), 0)) < 0)
+        return NTP_DAEMON_COMMS_ERROR;
+
+    //printf("NTP message\n");
+    //printf("Command = %0x%0x\n", ntp_message->ver_mode, ntp_message->op_code);
+    //printf("Status = %0x%0x\n", ntp_message->status1, ntp_message->status2);
+
+    return 0;
+
+}
+
+int get_association_ids(
+        unsigned short *association_ids, 
+        unsigned short *peer_selections, 
+        int *num_associations,
+        int max_association_ids)
+{
+    struct ntp_control ntp_message;
+    int i;
+    int ret;
+    int association_count;
+    unsigned short association_id;
+    int peer_sel;
+
+    // Send a system level read status query
+    ret = do_ntp_query(NTP_OP_READ_STS, SYS_ASSOCIATION_ID, &ntp_message);
+    if (ret != 0)
+        return ret;
+
+    // Extract the association IDs from the response
+    association_count = 0;
+    for (i = 0; i < DATA_SIZE; i += 4)
+    {
+        // Decode the association ID
+        association_id = 0x100 * ntp_message.data[i+1];
+        association_id += ntp_message.data[i];
+
+        // Get the peer selection status
+        peer_sel = (ntp_message.data[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
+
+        // Check if we have reached the end of the IDs
+        if (association_id == 0)
+            break;
+
+        // Return the values to the calling function
+        association_ids[association_count] = association_id;
+        peer_selections[association_count] = peer_sel;
+        association_count++;
+
+        // Check if we have reached the limit of the associations allowed for
+        if (association_count >= max_association_ids)
+            break;
+    }
+
+    *num_associations = association_count;
 
     return 0;
 }
+
+

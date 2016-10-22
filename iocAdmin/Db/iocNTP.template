@@ -104,3 +104,19 @@ record(ai, "$(IOCNAME):NTP_CLK_WANDER") {
   field(INP, "@ntp_clock_wander")
 }
 
+# NTP total number of peers
+record(ai, "$(IOCNAME):NTP_NUM_PEERS") {
+  field(DESC, "NTP total number peers")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_num_peers")
+}
+
+# NTP clock wander
+record(ai, "$(IOCNAME):NTP_NUM_GOOD_PEERS") {
+  field(DESC, "NTP number of good peers")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC stats")
+  field(INP, "@ntp_num_good_peers")
+}
+

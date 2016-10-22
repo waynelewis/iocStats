@@ -65,6 +65,8 @@ typedef struct {
     double ntpSystemJitter;
     double ntpClockJitter;
     double ntpClockWander;
+    int ntpNumPeers;
+    int ntpNumGoodPeers;
 } ntpStatus;
 
 typedef struct {
