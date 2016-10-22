@@ -98,6 +98,9 @@
         ntp_clock_wander    - NTP clock wander
         ntp_num_peers       - NTP number of potential peers 
         ntp_num_good_peers  - NTP number of candidate peers
+        ntp_max_peer_offset - NTP maximum peer offset
+        ntp_max_peer_jitter - NTP maximum peer jitter
+        ntp_min_peer_stratum- NTP minimum peer jitter
 
         ai (DTYP="IOC stats clusts"):
         clust_info <pool> <index> <type> where:
@@ -244,6 +247,9 @@ static void statsNTPClockJitter(double *);
 static void statsNTPClockWander(double *);
 static void statsNTPNumPeers(double *);
 static void statsNTPNumGoodPeers(double *);
+static void statsNTPMaxPeerOffset(double *);
+static void statsNTPMaxPeerJitter (double *);
+static void statsNTPMinPeerStratum(double *);
 
 struct {
 	char *name;
@@ -301,6 +307,9 @@ static validGetParms statsGetParms[]={
     { "ntp_clock_wander",   statsNTPClockWander,    DAEMON_TYPE },
     { "ntp_num_peers",      statsNTPNumPeers,       DAEMON_TYPE },
     { "ntp_num_good_peers", statsNTPNumGoodPeers,   DAEMON_TYPE },
+    { "ntp_max_peer_offset",statsNTPMaxPeerOffset,  DAEMON_TYPE },
+    { "ntp_max_peer_jitter",statsNTPMaxPeerJitter,  DAEMON_TYPE },
+    { "ntp_min_peer_stratum",statsNTPMinPeerStratum,DAEMON_TYPE },
 	{ NULL,NULL,0 }
 };
 
@@ -857,4 +866,16 @@ static void statsNTPNumPeers(double* val)
 static void statsNTPNumGoodPeers(double* val)
 {
     *val = (double)ntpstatus.ntpNumGoodPeers;
+}
+static void statsNTPMaxPeerOffset(double* val)
+{
+    *val = (double)ntpstatus.ntpMaxPeerOffset;
+}
+static void statsNTPMaxPeerJitter(double* val)
+{
+    *val = (double)ntpstatus.ntpMaxPeerJitter;
+}
+static void statsNTPMinPeerStratum(double* val)
+{
+    *val = (double)ntpstatus.ntpMinPeerStratum;
 }

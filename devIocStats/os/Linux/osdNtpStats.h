@@ -81,6 +81,15 @@ int get_association_ids(
         int max_association_ids
         );
 
+int get_peer_stats(
+        int *association_ids,
+        int num_peers,
+        double *max_peer_offset,
+        double *max_peer_jitter,
+        int *min_peer_stratum,
+        struct ntpStatus *pval
+        );
+
 void parse_ntp_associations(
         unsigned short *association_ids,
         unsigned short *peer_selections,
