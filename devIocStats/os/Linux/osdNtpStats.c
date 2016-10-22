@@ -76,12 +76,9 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     ret = get_peer_stats(
             association_ids,
             num_associations,
-            &max_peer_offset,
-            &max_peer_jitter,
-            &min_peer_stratum,
             pval);
 
-    if (ret < 0)
+    if (ret < NTP_NO_ERROR)
         return ret;
 
     return NTP_NO_ERROR;
@@ -108,7 +105,6 @@ void parse_ntp_associations(
 
     pval->ntpNumGoodPeers = num_good_peers;
 }
-
 
 void parse_ntp_sys_vars(
         struct ntp_control *ntp_message,
@@ -344,18 +340,17 @@ int do_ntp_query(
 // - largest jitter
 // - minimum stratum
 int get_peer_stats(
-        int *association_ids,
+        unsigned short *association_ids,
         int num_peers,
-        double *max_peer_offset,
-        double *max_peer_jitter, 
-        int *min_peer_stratum,
-        struct ntpStatus *pval
+        ntpStatus *pval
         )
 {
     int i;
     int ret;
 
     char buffer[DATA_SIZE];
+    char *substr;
+    char *ntp_param_value;
 
     const char NTP_PEER_JITTER[] = "jitter=";
     const char NTP_PEER_OFFSET[] = "offset=";
@@ -365,9 +360,9 @@ int get_peer_stats(
     double jitters[num_peers];
     int stratums[num_peers];
 
-    double max_jitter_tmp;
-    double max_offset_tmp;
-    double min_stratum_tmp;
+    double max_jitter;
+    double max_offset;
+    double min_stratum;
 
     struct ntp_control ntp_message;
 
@@ -379,27 +374,27 @@ int get_peer_stats(
             return ret;
 
         /* Peer jitter */
-        strncpy(buffer, ntp_message->data, sizeof(buffer));
+        strncpy(buffer, ntp_message.data, sizeof(buffer));
         if ((substr = strstr(buffer, NTP_PEER_JITTER)))
         {
             substr += sizeof(NTP_PEER_JITTER) - 1;
             ntp_param_value = strtok(substr, ",");
 
-            jitters[i] = (int)(atoi(ntp_param_value));
+            jitters[i] = (double)(atof(ntp_param_value));
         }
 
         /* Peer offset */
-        strncpy(buffer, ntp_message->data, sizeof(buffer));
+        strncpy(buffer, ntp_message.data, sizeof(buffer));
         if ((substr = strstr(buffer, NTP_PEER_OFFSET)))
         {
             substr += sizeof(NTP_PEER_OFFSET) - 1;
             ntp_param_value = strtok(substr, ",");
 
-            offsets[i] = (int)(atoi(ntp_param_value));
+            offsets[i] = (double)(atof(ntp_param_value));
         }
 
         /* Peer stratum */
-        strncpy(buffer, ntp_message->data, sizeof(buffer));
+        strncpy(buffer, ntp_message.data, sizeof(buffer));
         if ((substr = strstr(buffer, NTP_PEER_STRATUM)))
         {
             substr += sizeof(NTP_PEER_STRATUM) - 1;
@@ -411,35 +406,29 @@ int get_peer_stats(
 
     // Iterate through the gathered data and extract the required values
 
-    max_offset_tmp = offsets[0];
-    max_jitter_tmp = jitters[0];
-    min_stratum_tmp = stratums[0];
+    max_offset = offsets[0];
+    max_jitter = jitters[0];
+    min_stratum = stratums[0];
 
     for (i = 1; i < num_peers; i++)
     {
-        if (abs(offsets[i]) > abs(max_offset_tmp))
-            max_offset_tmp = offsets[i];
+        if (abs(offsets[i]) > abs(max_offset))
+            max_offset = offsets[i];
 
-        if (jitters[i] > max_jitter_tmp)
-            max_jitter_tmp = jitters[i];
+        if (jitters[i] > max_jitter)
+            max_jitter = jitters[i];
 
-        if (stratums[i] < min_stratum_tmp)
-            min_stratum_tmp = stratums[i];
+        if (stratums[i] < min_stratum)
+            min_stratum = stratums[i];
     }
 
     // Transfer the values 
-    pval->ntpMaxPeerOffset = max_offset_tmp;
-    pval->ntpMaxPeerJitter = max_jitter_tmp;
-    pval->ntpMinPeerStratum = min_stratum_tmp;
+    pval->ntpMaxPeerOffset = max_offset;
+    pval->ntpMaxPeerJitter = max_jitter;
+    pval->ntpMinPeerStratum = min_stratum;
+
+    return NTP_NO_ERROR;
 }
-
-
-
-
-
-
-}
-
 
 int get_association_ids(
         unsigned short *association_ids, 
