@@ -4,161 +4,221 @@
 record(ai, "$(IOCNAME):NTP_VERSION") {
   field(DESC, "NTP version number")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_version")
+  field(INP,  "@ntp_version")
 }
 
 # NTP leap second
 record(ai, "$(IOCNAME):NTP_LEAP_SEC") {
   field(DESC, "NTP leap second status")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_leap_second")
+  field(INP,  "@ntp_leap_second")
 }
 
 # NTP stratum
 record(ai, "$(IOCNAME):NTP_STRATUM") {
   field(DESC, "NTP server stratum")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_stratum")
+  field(INP,  "@ntp_stratum")
+	field(HIGH, "10")
+	field(HSV,  "MINOR")
+	field(HIHI, "16")
+	field(HHSV, "MAJOR")
 }
 
 # NTP precision
 record(ai, "$(IOCNAME):NTP_PRECISION") {
   field(DESC, "NTP precision")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_precision")
+  field(INP,  "@ntp_precision")
 }
 
 # NTP root delay 
 record(ai, "$(IOCNAME):NTP_ROOT_DELAY") {
   field(DESC, "NTP root delay")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_root_delay")
+  field(INP,  "@ntp_root_delay")
 }
 
 # NTP root dispersion
 record(ai, "$(IOCNAME):NTP_ROOT_DISP") {
   field(DESC, "NTP root dispersion")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_root_dispersion")
+  field(INP,  "@ntp_root_dispersion")
 }
 
 # NTP time constant
 record(ai, "$(IOCNAME):NTP_TC") {
   field(DESC, "NTP time constant")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_tc")
+  field(INP,  "@ntp_tc")
 }
 
 # NTP minimum time constant
 record(ai, "$(IOCNAME):NTP_MIN_TC") {
   field(DESC, "NTP minimum time constant")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_min_tc")
+  field(INP,  "@ntp_min_tc")
 }
 
 # NTP offset
 record(ai, "$(IOCNAME):NTP_OFFSET") {
   field(DESC, "NTP offset")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_offset")
+  field(INP,  "@ntp_offset")
 }
 
 # NTP frequency
 record(ai, "$(IOCNAME):NTP_FREQUENCY") {
   field(DESC, "NTP frequency")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_frequency")
+  field(INP,  "@ntp_frequency")
 }
 
 # NTP system jitter
 record(ai, "$(IOCNAME):NTP_SYS_JITTER") {
   field(DESC, "NTP system jitter")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_system_jitter")
+  field(INP,  "@ntp_system_jitter")
 }
 
 # NTP clock jitter
 record(ai, "$(IOCNAME):NTP_CLK_JITTER") {
   field(DESC, "NTP clock jitter")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_clock_jitter")
+  field(INP,  "@ntp_clock_jitter")
 }
 
 # NTP clock wander
 record(ai, "$(IOCNAME):NTP_CLK_WANDER") {
   field(DESC, "NTP clock wander")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_clock_wander")
+  field(INP,  "@ntp_clock_wander")
 }
 
 # NTP total number of peers
 record(ai, "$(IOCNAME):NTP_NUM_PEERS") {
   field(DESC, "NTP total number peers")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_num_peers")
+  field(INP,  "@ntp_num_peers")
 }
 
 # NTP number of good peers
 record(ai, "$(IOCNAME):NTP_NUM_GOOD_PEERS") {
   field(DESC, "NTP number of good peers")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_num_good_peers")
+	field(LOW,  "1")
+	field(LSV, "MINOR")
+	field(LOLO, "0")
+	field(LLSV, "MAJOR")
+  field(INP,  "@ntp_num_good_peers")
 }
 
 # NTP maximum peer offset
 record(ai, "$(IOCNAME):NTP_MAX_PEER_OFFSET") {
   field(DESC, "NTP maximum peer offset")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_max_peer_offset")
+  field(INP,  "@ntp_max_peer_offset")
 }
 
 # NTP maximum peer jitter
 record(ai, "$(IOCNAME):NTP_MAX_PEER_JITTER") {
   field(DESC, "NTP maximum peer jitter")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+	field(EGU,  "ms")
   field(DTYP, "IOC stats")
 	field(PREC, "3")
-  field(INP, "@ntp_max_peer_jitter")
+  field(INP,  "@ntp_max_peer_jitter")
 }
 
 # NTP minimum peer stratum
 record(ai, "$(IOCNAME):NTP_MIN_PEER_STRATUM") {
   field(DESC, "NTP minimum peer stratum")
   field(SCAN, "I/O Intr")
+	field(PINI, "YES")
   field(DTYP, "IOC stats")
 	field(PREC, "0")
-  field(INP, "@ntp_min_peer_stratum")
+  field(INP,  "@ntp_min_peer_stratum")
 }
+
+# NTP sync status value
+record(ai, "$(IOCNAME):NTP_SYNC_STATUS_VAL") {
+  field(DESC, "NTP sync status")
+  field(SCAN, "I/O Intr")
+	field(PINI, "YES")
+  field(DTYP, "IOC stats")
+	field(PREC, "0")
+  field(INP,  "@ntp_sync_status")
+	field(FLNK, "$(IOCNAME):NTP_SYNC_STATUS PP")
+}
+
+# NTP sync status value
+record(mbbi, "$(IOCNAME):NTP_SYNC_STATUS") {
+	field(DESC, "NTP sync status")
+	field(SCAN, "Passive")
+	field(INP,  "$(IOCNAME):NTP_SYNC_STATUS_VAL")
+	field(ZRVL, "0")
+	field(ZRST, "Not synchronized")
+	field(ONVL, "1")
+	field(ONST, "Synchronized")
+	field(TWVL, "-1")
+	field(TWST, "Unknown")
+}
+
+
 

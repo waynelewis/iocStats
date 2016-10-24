@@ -66,8 +66,6 @@ struct ntp_control {
 };
 
 // Function prototypes
-void die(char *message);
-
 int do_ntp_query(
         unsigned char op_code, 
         unsigned short association_id,

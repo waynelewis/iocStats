@@ -70,6 +70,7 @@ typedef struct {
     double ntpMaxPeerOffset;
     double ntpMaxPeerJitter;
     int ntpMinPeerStratum;
+    int ntpSyncStatus;
 } ntpStatus;
 
 typedef struct {

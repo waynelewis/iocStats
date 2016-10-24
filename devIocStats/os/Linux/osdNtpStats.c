@@ -110,6 +110,7 @@ void parse_ntp_sys_vars(
         struct ntp_control *ntp_message,
         ntpStatus *pval)
 {
+    int i;
     int ntp_version;
     //int ntp_mode;
     //int ntp_more_bit;
@@ -120,6 +121,8 @@ void parse_ntp_sys_vars(
      * Define the character strings used to parse the NTP 
      * daemon response string 
      */
+    const char NTP_SYNC_STATUS[] = "sync_";
+    const char **NTP_SYNC_STATUS_VALS = {"unsync", "sync", NULL};
     //const char NTP_VERSION[] = "version=";
     //const char NTP_PROCESSOR[] = "processor=";
     //const char NTP_SYSTEM[] = "system=";
@@ -148,6 +151,19 @@ void parse_ntp_sys_vars(
     /* Extract the NTP version number */
     ntp_version = (ntp_message->ver_mode & VER_MASK) >> VER_SHIFT;
     pval->ntpVersionNumber = ntp_version;
+
+    /* Synx status */
+    strncpy(buffer, ntp_message->data, sizeof(buffer));
+    if ((substr = strstr(buffer, NTP_SYNC_STATUS)))
+    {
+        substr += sizeof(NTP_SYNC_STATUS) - 1;
+        ntp_param_value = strtok(substr, ",");
+
+        pval->ntpSyncStatus = -1;
+        for (i = 0; NTP_SYNC_STATUS_VALS[i] != NULL; i++)
+            if(strcmp(ntp_param_value, NTP_SYNC_STATUS_VALS[i]))
+                pval->ntpSyncStatus = i;
+    }
 
     /* Leap second status */
     strncpy(buffer, ntp_message->data, sizeof(buffer));

@@ -101,6 +101,7 @@
         ntp_max_peer_offset - NTP maximum peer offset
         ntp_max_peer_jitter - NTP maximum peer jitter
         ntp_min_peer_stratum- NTP minimum peer jitter
+        ntp_sync_status     - NTP daemon sync status
 
         ai (DTYP="IOC stats clusts"):
         clust_info <pool> <index> <type> where:
@@ -250,6 +251,7 @@ static void statsNTPNumGoodPeers(double *);
 static void statsNTPMaxPeerOffset(double *);
 static void statsNTPMaxPeerJitter (double *);
 static void statsNTPMinPeerStratum(double *);
+static void statsNTPSyncStatus(double *);
 
 struct {
 	char *name;
@@ -310,6 +312,7 @@ static validGetParms statsGetParms[]={
     { "ntp_max_peer_offset",statsNTPMaxPeerOffset,  DAEMON_TYPE },
     { "ntp_max_peer_jitter",statsNTPMaxPeerJitter,  DAEMON_TYPE },
     { "ntp_min_peer_stratum",statsNTPMinPeerStratum,DAEMON_TYPE },
+    { "ntp_sync_status",    statsNTPSyncStatus,     DAEMON_TYPE },
 	{ NULL,NULL,0 }
 };
 
@@ -878,4 +881,8 @@ static void statsNTPMaxPeerJitter(double* val)
 static void statsNTPMinPeerStratum(double* val)
 {
     *val = (double)ntpstatus.ntpMinPeerStratum;
+}
+static void statsNTPSyncStatus(double* val)
+{
+    *val = (double)ntpstatus.ntpSyncStatus;
 }
