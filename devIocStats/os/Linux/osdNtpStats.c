@@ -537,8 +537,6 @@ int get_association_ids(
         association_id = 0x100 * ntp_message.data[i+1];
         association_id += ntp_message.data[i];
 
-        printf("association_id = %d\n", association_id);
-
         // Get the peer selection status
         peer_sel = (ntp_message.data[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
 
