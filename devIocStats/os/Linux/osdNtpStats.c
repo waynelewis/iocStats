@@ -93,6 +93,9 @@ void parse_ntp_associations(
 {
     int i;
     int num_good_peers;
+    int reference_peer;
+
+    reference_peer = FALSE;
 
     pval->ntpNumPeers = num_associations;
 
@@ -100,29 +103,39 @@ void parse_ntp_associations(
     num_good_peers = 0;
 
     for (i = 0; i < num_associations; i++)
+    {
         if (peer_selections[i] >= NTP_PEER_SEL_NOT_OUTLYER)
             num_good_peers++;
 
+        if (peer_selections[i] >= NTP_PEER_SEL_SYNC_OVER_MAX)
+            reference_peer = TRUE;
+    }
+
     pval->ntpNumGoodPeers = num_good_peers;
+
+    // If we have at least one good peer, set the sync status to good
+    if (reference_peer == TRUE)
+        pval->ntpSyncStatus = NTP_SYNC_STATUS_NTP;
+    else
+        pval->ntpSyncStatus = NTP_SYNC_STATUS_UNSYNC;
+
+    // Store the selection statuses
+    //
+    for (i = 0; i < num_associations; i++)
+        pval->ntpPeerSelectionStatus[i] = peer_selections[i];
+
 }
 
 void parse_ntp_sys_vars(
         struct ntp_control *ntp_message,
         ntpStatus *pval)
 {
-    int i;
     int ntp_version;
     //int ntp_mode;
     //int ntp_more_bit;
     //int ntp_error_bit;
     //int ntp_response;
 
-    /* 
-     * Define the character strings used to parse the NTP 
-     * daemon response string 
-     */
-    const char NTP_SYNC_STATUS[] = "sync_";
-    const char **NTP_SYNC_STATUS_VALS = {"unsync", "sync", NULL};
     //const char NTP_VERSION[] = "version=";
     //const char NTP_PROCESSOR[] = "processor=";
     //const char NTP_SYSTEM[] = "system=";
@@ -151,19 +164,6 @@ void parse_ntp_sys_vars(
     /* Extract the NTP version number */
     ntp_version = (ntp_message->ver_mode & VER_MASK) >> VER_SHIFT;
     pval->ntpVersionNumber = ntp_version;
-
-    /* Synx status */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_SYNC_STATUS)))
-    {
-        substr += sizeof(NTP_SYNC_STATUS) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpSyncStatus = -1;
-        for (i = 0; NTP_SYNC_STATUS_VALS[i] != NULL; i++)
-            if(strcmp(ntp_param_value, NTP_SYNC_STATUS_VALS[i]))
-                pval->ntpSyncStatus = i;
-    }
 
     /* Leap second status */
     strncpy(buffer, ntp_message->data, sizeof(buffer));
@@ -343,18 +343,22 @@ int do_ntp_query(
     if ((ret = recv(sd, ntp_message, sizeof(*ntp_message), 0)) < 0)
         return NTP_DAEMON_COMMS_ERROR;
 
-    //printf("NTP message\n");
-    //printf("Command = %0x%0x\n", ntp_message->ver_mode, ntp_message->op_code);
-    //printf("Status = %0x%0x\n", ntp_message->status1, ntp_message->status2);
-
     return 0;
 
 }
 
-// Get the following pieces of information from the peers:
+// Get the following statistics from the peers:
 // - largest offset
 // - largest jitter
 // - minimum stratum
+//
+// Get the following information for each peer:
+// - stratum
+// - polling rate
+// - reach value
+// - delay
+// - offset
+// - jitter
 int get_peer_stats(
         unsigned short *association_ids,
         int num_peers,
@@ -368,14 +372,22 @@ int get_peer_stats(
     char *substr;
     char *ntp_param_value;
 
-    const char NTP_PEER_JITTER[] = "jitter=";
-    const char NTP_PEER_OFFSET[] = "offset=";
     const char NTP_PEER_STRATUM[] = "stratum=";
+    const char NTP_PEER_POLL[] = "ppoll=";
+    const char NTP_PEER_REACH[] = "reach=";
+    const char NTP_ROOT_DELAY[] = "rootdelay=";
+    const char NTP_PEER_DELAY[] = "delay=";
+    const char NTP_PEER_OFFSET[] = "offset=";
+    const char NTP_PEER_JITTER[] = "jitter=";
 
+    int stratums[num_peers];
+    int polls[num_peers];
+    int reaches[num_peers];
+    double delays[num_peers];
     double offsets[num_peers];
     double jitters[num_peers];
-    int stratums[num_peers];
 
+    double max_delay;
     double max_jitter;
     double max_offset;
     double min_stratum;
@@ -389,14 +401,50 @@ int get_peer_stats(
         if (ret < 0)
             return ret;
 
-        /* Peer jitter */
+        /* Peer stratum */
         strncpy(buffer, ntp_message.data, sizeof(buffer));
-        if ((substr = strstr(buffer, NTP_PEER_JITTER)))
+        if ((substr = strstr(buffer, NTP_PEER_STRATUM)))
         {
-            substr += sizeof(NTP_PEER_JITTER) - 1;
+            substr += sizeof(NTP_PEER_STRATUM) - 1;
             ntp_param_value = strtok(substr, ",");
 
-            jitters[i] = (double)(atof(ntp_param_value));
+            stratums[i] = (int)(atoi(ntp_param_value));
+        }
+
+        /* Peer poll */
+        strncpy(buffer, ntp_message.data, sizeof(buffer));
+        if ((substr = strstr(buffer, NTP_PEER_POLL)))
+        {
+            substr += sizeof(NTP_PEER_POLL) - 1;
+            ntp_param_value = strtok(substr, ",");
+
+            polls[i] = (int)(atoi(ntp_param_value));
+        }
+
+        /* Peer reach */
+        strncpy(buffer, ntp_message.data, sizeof(buffer));
+        if ((substr = strstr(buffer, NTP_PEER_REACH)))
+        {
+            substr += sizeof(NTP_PEER_REACH) - 1;
+            ntp_param_value = strtok(substr, ",");
+
+            reaches[i] = (int)(atoi(ntp_param_value));
+        }
+
+        /* Peer delay */
+        strncpy(buffer, ntp_message.data, sizeof(buffer));
+        /* First go past the root delay */
+        if ((substr = strstr(buffer, NTP_ROOT_DELAY)))
+        {
+            substr += sizeof(NTP_ROOT_DELAY);
+            strncpy(buffer, substr, sizeof(buffer));
+            if ((substr = strstr(buffer, NTP_PEER_DELAY)))
+            {
+                substr += sizeof(NTP_PEER_DELAY) - 1;
+                ntp_param_value = strtok(substr, ",");
+
+                delays[i] = (double)(atof(ntp_param_value));
+            }
         }
 
         /* Peer offset */
@@ -409,19 +457,21 @@ int get_peer_stats(
             offsets[i] = (double)(atof(ntp_param_value));
         }
 
-        /* Peer stratum */
+        /* Peer jitter */
         strncpy(buffer, ntp_message.data, sizeof(buffer));
-        if ((substr = strstr(buffer, NTP_PEER_STRATUM)))
+        if ((substr = strstr(buffer, NTP_PEER_JITTER)))
         {
-            substr += sizeof(NTP_PEER_STRATUM) - 1;
+            substr += sizeof(NTP_PEER_JITTER) - 1;
             ntp_param_value = strtok(substr, ",");
 
-            stratums[i] = (int)(atoi(ntp_param_value));
+            jitters[i] = (double)(atof(ntp_param_value));
         }
+
     }
 
     // Iterate through the gathered data and extract the required values
 
+    max_delay = delays[0];
     max_offset = offsets[0];
     max_jitter = jitters[0];
     min_stratum = stratums[0];
@@ -431,6 +481,9 @@ int get_peer_stats(
         if (abs(offsets[i]) > abs(max_offset))
             max_offset = offsets[i];
 
+        if (abs(delays[i]) > abs(max_delay))
+            max_delay = delays[i];
+
         if (jitters[i] > max_jitter)
             max_jitter = jitters[i];
 
@@ -438,7 +491,19 @@ int get_peer_stats(
             min_stratum = stratums[i];
     }
 
+    // Transfer the peer data
+    for (i = 0; i < num_peers; i++)
+    {
+        pval->ntpPeerStratums[i] = stratums[i];
+        pval->ntpPeerPolls[i] = polls[i];
+        pval->ntpPeerReaches[i] = reaches[i];
+        pval->ntpPeerDelays[i] = delays[i];
+        pval->ntpPeerOffsets[i] = offsets[i];
+        pval->ntpPeerJitters[i] = jitters[i];
+    }
+
     // Transfer the values 
+    pval->ntpMaxPeerDelay = max_delay;
     pval->ntpMaxPeerOffset = max_offset;
     pval->ntpMaxPeerJitter = max_jitter;
     pval->ntpMinPeerStratum = min_stratum;
@@ -471,6 +536,8 @@ int get_association_ids(
         // Decode the association ID
         association_id = 0x100 * ntp_message.data[i+1];
         association_id += ntp_message.data[i];
+
+        printf("association_id = %d\n", association_id);
 
         // Get the peer selection status
         peer_sel = (ntp_message.data[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;

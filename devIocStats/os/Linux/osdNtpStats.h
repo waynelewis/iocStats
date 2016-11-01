@@ -5,6 +5,9 @@
 
 #define NTP_PORT    123
 
+#define FALSE       0
+#define TRUE        1
+
 #define NTP_NO_ERROR                0
 #define NTP_SOCKET_OPEN_ERROR       -1
 #define NTP_SOCKET_CONNECT_ERROR    -2
@@ -15,11 +18,11 @@
 
 
 // Use a NTP mode 6 control message
-#define NTP_VER_MODE 0x16
-#define NTP_OP_READ_STS 0x01
-#define NTP_OP_READ_VAR 0x02
-#define NTP_OP_READ_CLK 0x04
-#define SYS_ASSOCIATION_ID 0
+#define NTP_VER_MODE                    0x16
+#define NTP_OP_READ_STS                 0x01
+#define NTP_OP_READ_VAR                 0x02
+#define NTP_OP_READ_CLK                 0x04
+#define SYS_ASSOCIATION_ID              0
 #define NTP_PEER_SEL_REJECT             0
 #define NTP_PEER_SEL_SANE               1
 #define NTP_PEER_SEL_CORRECT            2
@@ -27,14 +30,13 @@
 #define NTP_PEER_SEL_NOT_OUTLYER        4
 #define NTP_PEER_SEL_SYNC_OVER_MAX      5
 #define NTP_PEER_SEL_SYNC_UNDER_MAX     6
-
+#define NTP_SYNC_STATUS_UNSYNC          0
+#define NTP_SYNC_STATUS_NTP             1
 
 #define VER_MASK 0x38
 #define VER_SHIFT 2
-
 #define MODE_MASK 0x07
 #define MODE_SHIFT 0
-
 #define OP_CODE_MASK 0x1f
 #define OP_CODE_SHIFT 0
 #define MORE_MASK 0x20
@@ -43,7 +45,6 @@
 #define ERROR_SHIFT 6
 #define RESPONSE_MASK 0x80
 #define RESPONSE_SHIFT 7
-
 #define PEER_SEL_MASK 0x07
 #define PEER_SEL_SHIFT 0
 

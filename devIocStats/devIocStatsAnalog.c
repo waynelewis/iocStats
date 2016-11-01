@@ -83,25 +83,6 @@
                 workspace_alloc_bytes - number of RAM workspace allocated bytes
                 workspace_free_bytes  - number of RAM workspace free bytes
                 workspace_total_bytes - number of RAM workspace total bytes
-        ntp_version         - NTP version number
-        ntp_leap_second     - NTP leap second status
-        ntp_stratum         - NTP server stratum
-        ntp_precision       - NTP precision
-        ntp_root_delay      - NTP root delay
-        ntp_root_dispersion - NTP root dispersion
-        ntp_tc              - NTP time constant
-        ntp_min_tc          - NTP minimum time constant
-        ntp_offset          - NTP offset
-        ntp_frequency       - NTP frequency
-        ntp_system_jitter   - NTP system jitter
-        ntp_clock_jitter    - NTP clock jitter
-        ntp_clock_wander    - NTP clock wander
-        ntp_num_peers       - NTP number of potential peers 
-        ntp_num_good_peers  - NTP number of candidate peers
-        ntp_max_peer_offset - NTP maximum peer offset
-        ntp_max_peer_jitter - NTP maximum peer jitter
-        ntp_min_peer_stratum- NTP minimum peer jitter
-        ntp_sync_status     - NTP daemon sync status
 
         ai (DTYP="IOC stats clusts"):
         clust_info <pool> <index> <type> where:
@@ -233,25 +214,6 @@ static void statsIFOErrs(double *);
 static void statsRecords(double *);
 static void statsPID(double *);
 static void statsPPID(double *);
-static void statsNTPVersion(double *);
-static void statsNTPLeapSecond(double *);
-static void statsNTPStratum(double *);
-static void statsNTPPrecision(double *);
-static void statsNTPRootDelay(double *);
-static void statsNTPRootDispersion(double *);
-static void statsNTPTC(double *);
-static void statsNTPMinTC(double *);
-static void statsNTPOffset(double *);
-static void statsNTPFrequency(double *);
-static void statsNTPSystemJitter(double *);
-static void statsNTPClockJitter(double *);
-static void statsNTPClockWander(double *);
-static void statsNTPNumPeers(double *);
-static void statsNTPNumGoodPeers(double *);
-static void statsNTPMaxPeerOffset(double *);
-static void statsNTPMaxPeerJitter (double *);
-static void statsNTPMinPeerStratum(double *);
-static void statsNTPSyncStatus(double *);
 
 struct {
 	char *name;
@@ -294,25 +256,6 @@ static validGetParms statsGetParms[]={
 	{ "records",			statsRecords,           STATIC_TYPE },
 	{ "proc_id",			statsPID,               STATIC_TYPE },
 	{ "parent_proc_id",		statsPPID,              STATIC_TYPE },
-    { "ntp_version",        statsNTPVersion,        DAEMON_TYPE },
-    { "ntp_leap_second",    statsNTPLeapSecond,     DAEMON_TYPE },
-    { "ntp_stratum",        statsNTPStratum,        DAEMON_TYPE },
-    { "ntp_precision",      statsNTPPrecision,      DAEMON_TYPE },
-    { "ntp_root_delay",     statsNTPRootDelay,      DAEMON_TYPE },
-    { "ntp_root_dispersion",statsNTPRootDispersion, DAEMON_TYPE },
-    { "ntp_tc",             statsNTPTC,             DAEMON_TYPE },
-    { "ntp_min_tc",         statsNTPMinTC,          DAEMON_TYPE },
-    { "ntp_offset",         statsNTPOffset,         DAEMON_TYPE },
-    { "ntp_frequency",      statsNTPFrequency,      DAEMON_TYPE },
-    { "ntp_system_jitter",  statsNTPSystemJitter,   DAEMON_TYPE },
-    { "ntp_clock_jitter",   statsNTPClockJitter,    DAEMON_TYPE },
-    { "ntp_clock_wander",   statsNTPClockWander,    DAEMON_TYPE },
-    { "ntp_num_peers",      statsNTPNumPeers,       DAEMON_TYPE },
-    { "ntp_num_good_peers", statsNTPNumGoodPeers,   DAEMON_TYPE },
-    { "ntp_max_peer_offset",statsNTPMaxPeerOffset,  DAEMON_TYPE },
-    { "ntp_max_peer_jitter",statsNTPMaxPeerJitter,  DAEMON_TYPE },
-    { "ntp_min_peer_stratum",statsNTPMinPeerStratum,DAEMON_TYPE },
-    { "ntp_sync_status",    statsNTPSyncStatus,     DAEMON_TYPE },
 	{ NULL,NULL,0 }
 };
 
@@ -325,7 +268,6 @@ epicsExportAddress(dset,devAiClusts);
 
 static memInfo meminfo = {0.0,0.0,0.0,0.0,0.0,0.0};
 static memInfo workspaceinfo = {0.0,0.0,0.0,0.0,0.0,0.0};
-static ntpStatus ntpstatus = {0,0,0,0,0.0,0.0,0,0,0.0,0.0,0.0,0.0,0.0};
 static scanInfo scan[TOTAL_TYPES] = {{0}};
 static fdInfo fdusage = {0,0};
 static loadInfo loadinfo = {1,0.,0.};
@@ -420,15 +362,6 @@ static void scan_time(int type)
         cainfo_connex  = cainfo_connex_local;
         epicsMutexUnlock(scan_mutex);
 	break;
-      }
-      case DAEMON_TYPE:
-      {
-          ntpStatus ntpstatus_local = {0,0,0,0,0.0,0.0,0,0,0.0,0.0,0.0,0.0,0.0};
-          devIocStatsGetNtpStats(&ntpstatus_local);
-          epicsMutexLock(scan_mutex);
-          ntpstatus = ntpstatus_local;
-          epicsMutexUnlock(scan_mutex);
-          break;
       }
       default:
         break;
@@ -809,80 +742,4 @@ static void statsPPID(double *val)
 {
     *val = 0;
     devIocStatsGetPPID(val);
-}
-static void statsNTPVersion(double* val)
-{
-    *val = (double)ntpstatus.ntpVersionNumber;
-}
-static void statsNTPLeapSecond(double* val)
-{
-    *val = (double)ntpstatus.ntpLeapSecond;
-}
-static void statsNTPStratum(double* val)
-{
-    *val = (double)ntpstatus.ntpStratum;
-}
-static void statsNTPPrecision(double* val)
-{
-    *val = (double)ntpstatus.ntpPrecision;
-}
-static void statsNTPRootDelay(double* val)
-{
-    *val = (double)ntpstatus.ntpRootDelay;
-}
-static void statsNTPRootDispersion(double* val)
-{
-    *val = (double)ntpstatus.ntpRootDispersion;
-}
-static void statsNTPTC(double* val)
-{
-    *val = (double)ntpstatus.ntpTC;
-}
-static void statsNTPMinTC(double* val)
-{
-    *val = (double)ntpstatus.ntpMinTC;
-}
-static void statsNTPOffset(double* val)
-{
-    *val = (double)ntpstatus.ntpOffset;
-}
-static void statsNTPFrequency(double* val)
-{
-    *val = (double)ntpstatus.ntpFrequency;
-}
-static void statsNTPSystemJitter(double* val)
-{
-    *val = (double)ntpstatus.ntpSystemJitter;
-}
-static void statsNTPClockJitter(double* val)
-{
-    *val = (double)ntpstatus.ntpClockJitter;
-}
-static void statsNTPClockWander(double* val)
-{
-    *val = (double)ntpstatus.ntpClockWander;
-}
-static void statsNTPNumPeers(double* val)
-{
-    *val = (double)ntpstatus.ntpNumPeers;
-}
-static void statsNTPNumGoodPeers(double* val)
-{
-    *val = (double)ntpstatus.ntpNumGoodPeers;
-}
-static void statsNTPMaxPeerOffset(double* val)
-{
-    *val = (double)ntpstatus.ntpMaxPeerOffset;
-}
-static void statsNTPMaxPeerJitter(double* val)
-{
-    *val = (double)ntpstatus.ntpMaxPeerJitter;
-}
-static void statsNTPMinPeerStratum(double* val)
-{
-    *val = (double)ntpstatus.ntpMinPeerStratum;
-}
-static void statsNTPSyncStatus(double* val)
-{
-    *val = (double)ntpstatus.ntpSyncStatus;
 }

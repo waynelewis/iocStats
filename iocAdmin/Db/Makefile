@@ -25,7 +25,10 @@ DB += iocAdminVxWorks.db
 DB += iocAdminSoft.db
 DB += iocAdminRTEMS.db
 DB += iocAdminScanMon.db
-DB += iocNTP.db
+ifeq ($(USE_NTP), YES)
+  DB += iocNTP.db
+  DB += iocNTPPeer.db
+endif
 
 #
 #----------------------------------------------------

@@ -1,0 +1,65 @@
+# NTP peer information
+#
+# Peer selection status
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION") {
+  field(DESC, "NTP peer $(PEER) selection status")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP peer stats")
+	field(PREC, "0")
+  field(INP,  "@ntp_peer_selection $(PEER)")
+}
+
+# Peer stratum
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_STRATUM") {
+  field(DESC, "NTP peer $(PEER) stratum")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP peer stats")
+	field(PREC, "0")
+  field(INP,  "@ntp_peer_stratum $(PEER)")
+}
+
+# Peer poll rate
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_POLL") {
+  field(DESC, "NTP peer $(PEER) poll rate")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP peer stats")
+	field(PREC, "0")
+  field(INP,  "@ntp_peer_poll $(PEER)")
+}
+
+# Peer reach
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_REACH") {
+  field(DESC, "NTP peer $(PEER) reach")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP peer stats")
+	field(PREC, "0")
+  field(INP,  "@ntp_peer_reach $(PEER)")
+}
+
+# Peer delay
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_DELAY") {
+  field(DESC, "NTP peer $(PEER) delay")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP peer stats")
+	field(PREC, "3")
+  field(INP,  "@ntp_peer_delay $(PEER)")
+}
+
+# Peer offset
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_OFFSET") {
+  field(DESC, "NTP peer $(PEER) offset")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP peer stats")
+	field(PREC, "3")
+  field(INP,  "@ntp_peer_offset $(PEER)")
+}
+
+# Peer jitter
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_JITTER") {
+  field(DESC, "NTP peer $(PEER) jitter")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP peer stats")
+	field(PREC, "3")
+  field(INP,  "@ntp_peer_jitter $(PEER)")
+}
+

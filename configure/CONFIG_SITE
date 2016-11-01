@@ -35,3 +35,5 @@ CROSS_COMPILER_TARGET_ARCHS =
 #MSI=$(EPICS_SITE_TOP)/extensions/$(EXTENSIONS_MODULE_VERSION)/bin/$(EPICS_HOST_ARCH)/msi
 MSI=msi
 
+# Define USE_NTP=YES if NTP monitoring should be included in build
+USE_NTP=YES

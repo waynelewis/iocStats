@@ -7,6 +7,7 @@ include $(TOP)/configure/CONFIG
 
 # For DTYP="IOC stats"
 DBD += devIocStats.dbd
+
 # For DTYP="VX stats"
 DBD += devVxStats.dbd
 
@@ -26,6 +27,9 @@ SRCS += devIocStatsString.c
 SRCS += devIocStatsWaveform.c
 SRCS += devIocStatsSub.c
 SRCS += devIocStatsTest.c
+ifeq ($(USE_NTP), YES)
+  SRCS += devIocStatsNTP.c
+endif
 
 # OSD parts
 # Base 3.14 does not correctly define POSIX=NO for mingw
@@ -44,7 +48,9 @@ SRCS += osdBootInfo.c
 SRCS += osdSystemInfo.c
 SRCS += osdHostInfo.c
 SRCS += osdPIDInfo.c
-SRCS += osdNtpStats.c
+ifeq ($(USE_NTP), YES)
+  SRCS += osdNtpStats.c
+endif
 
 OBJS_vxWorks += osdCpuUsageTest.o
 
