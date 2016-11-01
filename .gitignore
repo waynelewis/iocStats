@@ -20,3 +20,6 @@ envPaths
 # IDE configuration
 /QtC-*
 .deps
+
+# Backup files
+*.sw?
