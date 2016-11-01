@@ -7,7 +7,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION_") {
   field(DTYP, "IOC NTP peer stats")
 	field(PREC, "0")
   field(INP,  "@ntp_peer_selection $(PEER)")
-	field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION") {
+	field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION PP") 
 }
 
 record(mbbi, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION") {
@@ -48,7 +48,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_POLL_") {
   field(DTYP, "IOC NTP peer stats")
 	field(PREC, "0")
   field(INP,  "@ntp_peer_poll $(PEER)")
-  field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_POLL")
+  field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_POLL PP")
 }
 
 record(calc, "$(IOCNAME):NTP_PEER_$(PEER)_POLL") {
