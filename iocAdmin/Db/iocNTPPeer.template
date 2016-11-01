@@ -1,13 +1,36 @@
 # NTP peer information
 #
 # Peer selection status
-record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION") {
-  field(DESC, "NTP peer $(PEER) selection status")
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION_") {
+  field(DESC, "NTP peer $(PEER) selection status value")
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP peer stats")
 	field(PREC, "0")
   field(INP,  "@ntp_peer_selection $(PEER)")
+	field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION") {
 }
+
+record(mbbi, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION") {
+  field(DESC, "NTP peer $(PEER) selection status symbol")
+	field(INP,  "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION_")
+	field(ZRVL, "0")
+	field(ZRST, " ")
+	field(ONVL, "1")
+	field(ONST, "x")
+	field(TWVL, "2")
+	field(TWST, ".")
+	field(THVL, "3")
+	field(THST, "-")
+	field(FRVL, "4")
+	field(FRST, "+")
+	field(FVVL, "5")
+	field(FVST, "#")
+	field(SXVL, "6")
+	field(SXST, "*")
+	field(SVVL, "7")
+	field(SVST, "o")
+}
+
 
 # Peer stratum
 record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_STRATUM") {
@@ -19,12 +42,20 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_STRATUM") {
 }
 
 # Peer poll rate
-record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_POLL") {
-  field(DESC, "NTP peer $(PEER) poll rate")
+record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_POLL_") {
+  field(DESC, "NTP peer $(PEER) poll rate (log2)")
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP peer stats")
 	field(PREC, "0")
   field(INP,  "@ntp_peer_poll $(PEER)")
+  field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_POLL")
+}
+
+record(calc, "$(IOCNAME):NTP_PEER_$(PEER)_POLL") {
+  field(DESC, "NTP peer $(PEER) poll rate")
+	field(PREC, "0")
+  field(INPA, "$(IOCNAME):NTP_PEER_$(PEER)_POLL_")
+  field(CALC, "2**A")
 }
 
 # Peer reach
