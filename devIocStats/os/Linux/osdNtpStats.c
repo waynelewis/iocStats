@@ -104,10 +104,10 @@ void parse_ntp_associations(
 
     for (i = 0; i < num_associations; i++)
     {
-        if (peer_selections[i] >= NTP_PEER_SEL_NOT_OUTLYER)
+        if (peer_selections[i] >= NTP_PEER_SEL_CANDIDATE)
             num_good_peers++;
 
-        if (peer_selections[i] >= NTP_PEER_SEL_SYNC_OVER_MAX)
+        if (peer_selections[i] >= NTP_PEER_SEL_SYSPEER)
             reference_peer = TRUE;
     }
 

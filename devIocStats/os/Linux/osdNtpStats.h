@@ -23,13 +23,16 @@
 #define NTP_OP_READ_VAR                 0x02
 #define NTP_OP_READ_CLK                 0x04
 #define SYS_ASSOCIATION_ID              0
-#define NTP_PEER_SEL_REJECT             0
-#define NTP_PEER_SEL_SANE               1
-#define NTP_PEER_SEL_CORRECT            2
-#define NTP_PEER_SEL_CANDIDATE          3
-#define NTP_PEER_SEL_NOT_OUTLYER        4
-#define NTP_PEER_SEL_SYNC_OVER_MAX      5
-#define NTP_PEER_SEL_SYNC_UNDER_MAX     6
+
+#define NTP_PEER_SEL_INVALID        0
+#define NTP_PEER_SEL_FALSETICKER    1
+#define NTP_PEER_SEL_EXCESS         2
+#define NTP_PEER_SEL_OUTLIER        3
+#define NTP_PEER_SEL_CANDIDATE      4
+#define NTP_PEER_SEL_SELECTED       5
+#define NTP_PEER_SEL_SYSPEER        6
+#define NTP_PEER_SEL_PPSPEER        7
+
 #define NTP_SYNC_STATUS_UNSYNC          0
 #define NTP_SYNC_STATUS_NTP             1
 
