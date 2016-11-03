@@ -155,7 +155,3 @@ extern int devIocStatsGetHostname (char **pval);
 extern int devIocStatsGetPID (double *proc_id);
 extern int devIocStatsGetPPID (double *proc_id);
 
-/* NTP status */
-extern int devIocStatsInitNtpStats (void);
-extern int devIocStatsGetNtpStats (ntpStatus *pval);
-

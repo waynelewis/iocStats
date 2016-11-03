@@ -28,7 +28,7 @@ SRCS += devIocStatsWaveform.c
 SRCS += devIocStatsSub.c
 SRCS += devIocStatsTest.c
 ifeq ($(USE_NTP), YES)
-  SRCS += devIocStatsNTP.c
+  SRCS += devIocStatsNTP.cpp
 endif
 
 # OSD parts
@@ -48,9 +48,6 @@ SRCS += osdBootInfo.c
 SRCS += osdSystemInfo.c
 SRCS += osdHostInfo.c
 SRCS += osdPIDInfo.c
-ifeq ($(USE_NTP), YES)
-  SRCS += osdNtpStats.c
-endif
 
 OBJS_vxWorks += osdCpuUsageTest.o
 
