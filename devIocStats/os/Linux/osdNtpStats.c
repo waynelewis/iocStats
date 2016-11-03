@@ -401,8 +401,6 @@ int get_peer_stats(
         if (ret < 0)
             return ret;
 
-        printf("association_ids[%d] = %d\n", i, association_ids[i]);
-
         /* Peer stratum */
         strncpy(buffer, ntp_message.data, sizeof(buffer));
         if ((substr = strstr(buffer, NTP_PEER_STRATUM)))
@@ -538,8 +536,6 @@ int get_association_ids(
         // Decode the association ID
         association_id = 0x100 * (unsigned char) ntp_message.data[i+1];
         association_id += (unsigned char) ntp_message.data[i];
-
-        printf("association_id = %d\n", association_id);
 
         // Get the peer selection status
         peer_sel = (ntp_message.data[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
