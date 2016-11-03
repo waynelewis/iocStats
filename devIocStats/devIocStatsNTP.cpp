@@ -232,12 +232,14 @@ static epicsMutexId ntp_scan_mutex;
 
 static void poll_ntp_daemon(void)
 {
+
     while(1)
     {
-        printf("polling NTP daemon\n");
-        epicsThreadSleep(20);
+
+        devIocStatsGetNtpStats(&ntpstatus);
 
         scanIoRequest(ioscanpvt);
+        epicsThreadSleep(20);
     }
 }
 
@@ -258,8 +260,6 @@ static long ai_ntp_init(int pass)
         fprintf(stderr, "epicsThreadCreate failure\n");
         return -1;
     }
-    else 
-        printf("epicsThreadCreate success\n");
 
     scanIoInit(&ioscanpvt);
 
@@ -982,8 +982,8 @@ int get_association_ids(
     for (i = 0; i < DATA_SIZE; i += 4)
     {
         // Decode the association ID
-        association_id = 0x100 * ntp_message.data[i+1];
-        association_id += ntp_message.data[i];
+        association_id = 0x100 * (unsigned char) ntp_message.data[i+1];
+        association_id += (unsigned char) ntp_message.data[i];
 
         // Get the peer selection status
         peer_sel = (ntp_message.data[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;

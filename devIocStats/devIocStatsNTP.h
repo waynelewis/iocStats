@@ -62,7 +62,7 @@ typedef struct _ntpStatus {
 
 /* NTP status functions */
 //extern int devIocStatsInitNtpStats (void);
-//extern int devIocStatsGetNtpStats (ntpStatus *pval);
+int devIocStatsGetNtpStats (ntpStatus *pval);
 
 #define NTP_PORT    123
 
