@@ -1,7 +1,6 @@
 device(ai,INST_IO,devAiStats,"IOC stats")
 device(ai,INST_IO,devAiClusts,"IOC stats clusts")
 device(ai,INST_IO,devAiNTPStats,"IOC NTP stats")
-device(ai,INST_IO,devAiNTPPeerStats,"IOC NTP peer stats")
 device(ao,INST_IO,devAoStats,"IOC stats")
 device(stringin,INST_IO,devStringinStats,"IOC stats")
 device(stringin,INST_IO,devStringinEnvVar,"IOC env var")

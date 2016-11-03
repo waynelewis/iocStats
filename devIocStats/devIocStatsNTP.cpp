@@ -97,6 +97,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string>
+#include <iostream>
 
 #include <epicsThread.h>
 #include <epicsTimer.h>
@@ -136,6 +137,8 @@ struct aStatsNTP
 };
 typedef struct aStatsNTP aStatsNTP;
 
+static IOSCANPVT ioscanpvt;
+
 struct pvtNTPArea
 {
     int index;
@@ -144,8 +147,7 @@ struct pvtNTPArea
 };
 typedef struct pvtNTPArea pvtNTPArea;
 
-typedef void (*statNTPGetFunc)(double*);
-typedef void (*statNTPPeerGetFunc)(double*, int);
+typedef void (*statNTPGetFunc)(double*, int);
 
 struct validNTPGetParms
 {
@@ -154,39 +156,29 @@ struct validNTPGetParms
 };
 typedef struct validNTPGetParms validNTPGetParms;
 
-struct validNTPPeerGetParms
-{
-    string name;
-    statNTPPeerGetFunc func;
-};
-typedef struct validNTPPeerGetParms validNTPPeerGetParms;
-
 static long ai_ntp_init(int pass);
 static long ai_ntp_init_record(aiRecord*);
 static long ai_ntp_read(aiRecord*);
 static long ai_ntp_ioint_info(int cmd,aiRecord* pr,IOSCANPVT* iopvt);
 
-static long ai_ntp_peer_init_record(aiRecord*);
-static long ai_ntp_peer_read(aiRecord*);
-
-static void statsNTPVersion(double *);
-static void statsNTPLeapSecond(double *);
-static void statsNTPStratum(double *);
-static void statsNTPPrecision(double *);
-static void statsNTPRootDelay(double *);
-static void statsNTPRootDispersion(double *);
-static void statsNTPTC(double *);
-static void statsNTPMinTC(double *);
-static void statsNTPOffset(double *);
-static void statsNTPFrequency(double *);
-static void statsNTPSystemJitter(double *);
-static void statsNTPClockJitter(double *);
-static void statsNTPClockWander(double *);
-static void statsNTPNumPeers(double *);
-static void statsNTPNumGoodPeers(double *);
-static void statsNTPMaxPeerOffset(double *);
-static void statsNTPMaxPeerJitter (double *);
-static void statsNTPMinPeerStratum(double *);
+static void statsNTPVersion(double *, int peer=-1);
+static void statsNTPLeapSecond(double *, int peer=-1);
+static void statsNTPStratum(double *, int peer=-1);
+static void statsNTPPrecision(double *, int peer=-1);
+static void statsNTPRootDelay(double *, int peer=-1);
+static void statsNTPRootDispersion(double *, int peer=-1);
+static void statsNTPTC(double *, int peer=-1);
+static void statsNTPMinTC(double *, int peer=-1);
+static void statsNTPOffset(double *, int peer=-1);
+static void statsNTPFrequency(double *, int peer=-1);
+static void statsNTPSystemJitter(double *, int peer=-1);
+static void statsNTPClockJitter(double *, int peer=-1);
+static void statsNTPClockWander(double *, int peer=-1);
+static void statsNTPNumPeers(double *, int peer=-1);
+static void statsNTPNumGoodPeers(double *, int peer=-1);
+static void statsNTPMaxPeerOffset(double *, int peer=-1);
+static void statsNTPMaxPeerJitter (double *, int peer=-1);
+static void statsNTPMinPeerStratum(double *, int peer=-1);
 static void statsNTPPeerSelection(double *, int);
 static void statsNTPPeerStratum(double *, int);
 static void statsNTPPeerPoll(double *, int);
@@ -214,10 +206,6 @@ static validNTPGetParms statsGetNTPParms[]={
     { "ntp_max_peer_offset",statsNTPMaxPeerOffset },
     { "ntp_max_peer_jitter",statsNTPMaxPeerJitter },
     { "ntp_min_peer_stratum",statsNTPMinPeerStratum },
-	{ "",NULL }
-};
-
-static validNTPPeerGetParms statsGetNTPPeerParms[]={
     { "ntp_peer_selection", statsNTPPeerSelection },
     { "ntp_peer_stratum",   statsNTPPeerStratum },
     { "ntp_peer_poll",      statsNTPPeerPoll },
@@ -244,9 +232,13 @@ static epicsMutexId ntp_scan_mutex;
 
 static void poll_ntp_daemon(void)
 {
-    printf("polling NTP daemon\n");
-    epicsThreadSleep(20);
+    while(1)
+    {
+        printf("polling NTP daemon\n");
+        epicsThreadSleep(20);
 
+        scanIoRequest(ioscanpvt);
+    }
 }
 
 
@@ -266,48 +258,17 @@ static long ai_ntp_init(int pass)
         fprintf(stderr, "epicsThreadCreate failure\n");
         return -1;
     }
+    else 
+        printf("epicsThreadCreate success\n");
+
+    scanIoInit(&ioscanpvt);
 
     ntp_scan_mutex = epicsMutexMustCreate();
+
     return 0;
 }
 
 static long ai_ntp_init_record(aiRecord* pr)
-{
-    int		i;
-    string	parm;
-    pvtNTPArea	*pvtNTP = NULL;
-
-    if(pr->inp.type!=INST_IO)
-    {
-        recGblRecordError(S_db_badField,(void*)pr,
-                "devAiNTPStats (init_record) Illegal INP field");
-        return S_db_badField;
-    }
-    parm = (string)pr->inp.value.instio.string;
-    for(i=0;(statsGetNTPParms[i].name != "") && (pvtNTP==NULL);i++)
-    {
-        if(parm.compare(statsGetNTPParms[i].name)==0)
-        {
-            pvtNTP=(pvtNTPArea*)malloc(sizeof(pvtNTPArea));
-            pvtNTP->index=i;
-            pvtNTP->peer = 0;
-        }
-    }
-
-    if(pvtNTP==NULL)
-    {
-        recGblRecordError(S_db_badField,(void*)pr,
-                "devAiNTPStats (init_record) Illegal INP parm field");
-        return S_db_badField;
-    }
-
-    /* Make sure record processing routine does not perform any conversion*/
-    pr->linr=menuConvertNO_CONVERSION;
-    pr->dpvt=pvtNTP;
-    return 0;
-}
-
-static long ai_ntp_peer_init_record(aiRecord* pr)
 {
     int		i;
     string	parm;
@@ -319,20 +280,20 @@ static long ai_ntp_peer_init_record(aiRecord* pr)
     if(pr->inp.type!=INST_IO)
     {
         recGblRecordError(S_db_badField,(void*)pr,
-                "devAiNTPPeerStats (init_record) Illegal INP field");
+                "devAiNTPStats (init_record) Illegal INP field");
         return S_db_badField;
     }
+
     parm = (string)pr->inp.value.instio.string;
-    for(i=0;(statsGetNTPPeerParms[i].name != "") && (pvtNTP==NULL);i++)
+    for(i=0; pvtNTP==NULL; i++)
     {
-        // Test if a space exists  in the string
         //
         index = parm.find(" ");
 
-        if (index != string::npos)
+        if (index == string::npos)
         {
             parameter = parm;
-            peer = 0;
+            peer = -1;
         }
         else
         {
@@ -340,11 +301,17 @@ static long ai_ntp_peer_init_record(aiRecord* pr)
             peer = atoi(parm.substr(index+1).c_str());
         }
 
-        if(parameter.compare(statsGetNTPPeerParms[i].name)==0)
+        //cout << index << endl;
+        //cout << parameter << endl;
+        //cout << peer << endl;
+
+
+        if(parameter.compare(statsGetNTPParms[i].name)==0)
             {
                 pvtNTP=(pvtNTPArea*)malloc(sizeof(pvtNTPArea));
                 pvtNTP->index=i;
                 pvtNTP->peer = peer;
+                //cout << "peer = " << peer << endl;
             }
     }
 
@@ -361,28 +328,14 @@ static long ai_ntp_peer_init_record(aiRecord* pr)
     return 0;
 }
 
-static long ai_ntp_ioint_info(int cmd,aiRecord* pr,IOSCANPVT* iopvt)
+static long ai_ntp_ioint_info(int cmd, aiRecord* pr, IOSCANPVT* iopvt)
 {
     pvtNTPArea* pvtNTP=(pvtNTPArea*)pr->dpvt;
 
     if (!pvtNTP) return S_dev_badInpType;
 
-    //if(cmd==0) /* added */
-    //{
-        //if(scanNTP[pvtNTP->type].total++ == 0)
-        //{
-            /* start a watchdog */
-            //epicsTimerStartDelay(scanNTP[pvtNTP->type].wd, scanNTP[pvtNTP->type].rate_sec);
-            //scanNTP[pvtNTP->type].on=1;
-        //}
-    //}
-    //else /* deleted */
-    //{
-        //if(--scanNTP[pvtNTP->type].total == 0)
-            //scanNTP[pvtNTP->type].on=0; /* stop the watchdog */
-    //}
+    *iopvt = ioscanpvt;
 
-    //*iopvt=scanNTP[pvtNTP->type].ioscan;
     return 0;
 }
 
@@ -395,7 +348,7 @@ static long ai_ntp_read(aiRecord* pr)
     if (!pvtNTP) return S_dev_badInpType;
 
     epicsMutexLock(ntp_scan_mutex);
-    statsGetNTPParms[pvtNTP->index].func(&val);
+    statsGetNTPParms[pvtNTP->index].func(&val,pvtNTP->peer);
     epicsMutexUnlock(ntp_scan_mutex);
     pr->val = val;
     pr->udf = 0;
@@ -403,6 +356,7 @@ static long ai_ntp_read(aiRecord* pr)
 }
 
 /* Generic read - calling function from table */
+/*
 static long ai_ntp_peer_read(aiRecord* pr)
 {
     double val;
@@ -415,80 +369,81 @@ static long ai_ntp_peer_read(aiRecord* pr)
     epicsMutexUnlock(ntp_scan_mutex);
     pr->val = val;
     pr->udf = 0;
-    return 2; /* don't convert */
+    return 2; 
 }
+*/
 
 /* -------------------------------------------------------------------- */
 
-static void statsNTPVersion(double* val)
+static void statsNTPVersion(double* val, int)
 {
     *val = (double)ntpstatus.ntpVersionNumber;
 }
-static void statsNTPLeapSecond(double* val)
+static void statsNTPLeapSecond(double* val, int)
 {
     *val = (double)ntpstatus.ntpLeapSecond;
 }
-static void statsNTPStratum(double* val)
+static void statsNTPStratum(double* val, int)
 {
     *val = (double)ntpstatus.ntpStratum;
 }
-static void statsNTPPrecision(double* val)
+static void statsNTPPrecision(double* val, int)
 {
     *val = (double)ntpstatus.ntpPrecision;
 }
-static void statsNTPRootDelay(double* val)
+static void statsNTPRootDelay(double* val, int)
 {
     *val = (double)ntpstatus.ntpRootDelay;
 }
-static void statsNTPRootDispersion(double* val)
+static void statsNTPRootDispersion(double* val, int)
 {
     *val = (double)ntpstatus.ntpRootDispersion;
 }
-static void statsNTPTC(double* val)
+static void statsNTPTC(double* val, int)
 {
     *val = (double)ntpstatus.ntpTC;
 }
-static void statsNTPMinTC(double* val)
+static void statsNTPMinTC(double* val, int)
 {
     *val = (double)ntpstatus.ntpMinTC;
 }
-static void statsNTPOffset(double* val)
+static void statsNTPOffset(double* val, int)
 {
     *val = (double)ntpstatus.ntpOffset;
 }
-static void statsNTPFrequency(double* val)
+static void statsNTPFrequency(double* val, int)
 {
     *val = (double)ntpstatus.ntpFrequency;
 }
-static void statsNTPSystemJitter(double* val)
+static void statsNTPSystemJitter(double* val, int)
 {
     *val = (double)ntpstatus.ntpSystemJitter;
 }
-static void statsNTPClockJitter(double* val)
+static void statsNTPClockJitter(double* val, int)
 {
     *val = (double)ntpstatus.ntpClockJitter;
 }
-static void statsNTPClockWander(double* val)
+static void statsNTPClockWander(double* val, int)
 {
     *val = (double)ntpstatus.ntpClockWander;
 }
-static void statsNTPNumPeers(double* val)
+static void statsNTPNumPeers(double* val, int)
 {
     *val = (double)ntpstatus.ntpNumPeers;
 }
-static void statsNTPNumGoodPeers(double* val)
+static void statsNTPNumGoodPeers(double* val, int)
 {
     *val = (double)ntpstatus.ntpNumGoodPeers;
 }
-static void statsNTPMaxPeerOffset(double* val)
+static void statsNTPMaxPeerOffset(double* val, int)
 {
     *val = (double)ntpstatus.ntpMaxPeerOffset;
 }
-static void statsNTPMaxPeerJitter(double* val)
+static void statsNTPMaxPeerJitter(double* val, int)
 {
     *val = (double)ntpstatus.ntpMaxPeerJitter;
 }
-static void statsNTPMinPeerStratum(double* val)
+static void statsNTPMinPeerStratum(double* val, int)
 {
     *val = (double)ntpstatus.ntpMinPeerStratum;
 }
