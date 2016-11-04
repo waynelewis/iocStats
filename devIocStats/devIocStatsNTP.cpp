@@ -277,6 +277,7 @@ static long ai_ntp_init_record(aiRecord* pr)
     int     peer;
     pvtNTPArea	*pvtNTP = NULL;
 
+    // Check the record INP type
     if(pr->inp.type!=INST_IO)
     {
         recGblRecordError(S_db_badField,(void*)pr,
@@ -287,32 +288,30 @@ static long ai_ntp_init_record(aiRecord* pr)
     parm = (string)pr->inp.value.instio.string;
     for(i=0; pvtNTP==NULL; i++)
     {
-        //
+        // Test if there is a space in the INP string.
+        // If there is, then the peer number will follow.
         index = parm.find(" ");
 
         if (index == string::npos)
         {
+            // System variable
             parameter = parm;
             peer = -1;
         }
         else
         {
+            // Peer variable
             parameter = parm.substr(0, index);
             peer = atoi(parm.substr(index+1).c_str());
         }
 
-        //cout << index << endl;
-        //cout << parameter << endl;
-        //cout << peer << endl;
-
-
+        // Find the correct function in the list
         if(parameter.compare(statsGetNTPParms[i].name)==0)
-            {
-                pvtNTP=(pvtNTPArea*)malloc(sizeof(pvtNTPArea));
-                pvtNTP->index=i;
-                pvtNTP->peer = peer;
-                //cout << "peer = " << peer << endl;
-            }
+        {
+            pvtNTP=(pvtNTPArea*)malloc(sizeof(pvtNTPArea));
+            pvtNTP->index=i;
+            pvtNTP->peer = peer;
+        }
     }
 
     if(pvtNTP==NULL)
@@ -328,6 +327,7 @@ static long ai_ntp_init_record(aiRecord* pr)
     return 0;
 }
 
+// I/O interrupt initialization
 static long ai_ntp_ioint_info(int cmd, aiRecord* pr, IOSCANPVT* iopvt)
 {
     pvtNTPArea* pvtNTP=(pvtNTPArea*)pr->dpvt;
@@ -354,24 +354,6 @@ static long ai_ntp_read(aiRecord* pr)
     pr->udf = 0;
     return 2; /* don't convert */
 }
-
-/* Generic read - calling function from table */
-/*
-static long ai_ntp_peer_read(aiRecord* pr)
-{
-    double val;
-    pvtNTPArea* pvtNTP=(pvtNTPArea*)pr->dpvt;
-
-    if (!pvtNTP) return S_dev_badInpType;
-
-    epicsMutexLock(ntp_scan_mutex);
-    statsGetNTPPeerParms[pvtNTP->index].func(&val, pvtNTP->peer);
-    epicsMutexUnlock(ntp_scan_mutex);
-    pr->val = val;
-    pr->udf = 0;
-    return 2; 
-}
-*/
 
 /* -------------------------------------------------------------------- */
 
@@ -787,6 +769,9 @@ int do_ntp_query(
     if (ret == -1)
         return NTP_SELECT_ERROR;
 
+    // TODO; Make sure the full response is read from the daemon
+    // TODO: Allow for UDP packet ordering
+    //
     // Read the response
     if ((ret = recv(sd, ntp_message, sizeof(*ntp_message), 0)) < 0)
         return NTP_DAEMON_COMMS_ERROR;
@@ -816,29 +801,35 @@ int get_peer_stats(
     int i;
     int ret;
 
-    char buffer[DATA_SIZE];
-    char *substr;
-    char *ntp_param_value;
+    string ntp_data;
+    string substr;
+    string ntp_param_value;
 
-    const char NTP_PEER_STRATUM[] = "stratum=";
-    const char NTP_PEER_POLL[] = "ppoll=";
-    const char NTP_PEER_REACH[] = "reach=";
-    const char NTP_ROOT_DELAY[] = "rootdelay=";
-    const char NTP_PEER_DELAY[] = "delay=";
-    const char NTP_PEER_OFFSET[] = "offset=";
-    const char NTP_PEER_JITTER[] = "jitter=";
+    string NTP_PEER_STRATUM ("stratum=");
+    string NTP_PEER_POLL ("ppoll=");
+    string NTP_PEER_REACH ("reach=");
+    string NTP_ROOT_DELAY ("rootdelay=");
+    string NTP_PEER_DELAY ("delay=");
+    string NTP_PEER_OFFSET ("offset=");
+    string NTP_PEER_JITTER ("jitter=");
+    string SEPARATOR (",");
 
-    int stratums[num_peers];
-    int polls[num_peers];
-    int reaches[num_peers];
-    double delays[num_peers];
-    double offsets[num_peers];
-    double jitters[num_peers];
+    int stratums[NTP_MAX_PEERS];
+    int polls[NTP_MAX_PEERS];
+    int reaches[NTP_MAX_PEERS];
+    double delays[NTP_MAX_PEERS];
+    double offsets[NTP_MAX_PEERS];
+    double jitters[NTP_MAX_PEERS];
 
     double max_delay;
     double max_jitter;
     double max_offset;
     double min_stratum;
+
+    size_t separator;
+    size_t found;
+    size_t length;
+    size_t start;
 
     struct ntp_control ntp_message;
 
@@ -850,70 +841,73 @@ int get_peer_stats(
             return ret;
 
         /* Peer stratum */
-        strncpy(buffer, ntp_message.data, sizeof(buffer));
-        if ((substr = strstr(buffer, NTP_PEER_STRATUM)))
-        {
-            substr += sizeof(NTP_PEER_STRATUM) - 1;
-            ntp_param_value = strtok(substr, ",");
+        //strncpy(buffer, ntp_message.data, sizeof(buffer));
+        ntp_data = string(ntp_message.data);
 
-            stratums[i] = (int)(atoi(ntp_param_value));
+        if (((found= ntp_data.find(NTP_PEER_STRATUM)) != string::npos))
+        {
+            separator = ntp_data.find(SEPARATOR, found);
+            start = found + NTP_PEER_STRATUM.length();
+            length = separator - start;
+            ntp_param_value = ntp_data.substr(start, length);
+            stratums[i] = atoi(ntp_param_value.c_str());
         }
 
         /* Peer poll */
-        strncpy(buffer, ntp_message.data, sizeof(buffer));
-        if ((substr = strstr(buffer, NTP_PEER_POLL)))
-        {
-            substr += sizeof(NTP_PEER_POLL) - 1;
-            ntp_param_value = strtok(substr, ",");
+        //strncpy(buffer, ntp_message.data, sizeof(buffer));
+        //if ((substr = strstr(buffer, NTP_PEER_POLL)))
+        //{
+            ////substr += sizeof(NTP_PEER_POLL) - 1;
+            //ntp_param_value = strtok(substr, ",");
 
-            polls[i] = (int)(atoi(ntp_param_value));
-        }
+            //polls[i] = (int)(atoi(ntp_param_value));
+        //}
 
         /* Peer reach */
-        strncpy(buffer, ntp_message.data, sizeof(buffer));
-        if ((substr = strstr(buffer, NTP_PEER_REACH)))
-        {
-            substr += sizeof(NTP_PEER_REACH) - 1;
-            ntp_param_value = strtok(substr, ",");
-
-            reaches[i] = (int)(atoi(ntp_param_value));
-        }
+        //strncpy(buffer, ntp_message.data, sizeof(buffer));
+        //if ((substr = strstr(buffer, NTP_PEER_REACH)))
+        //{
+            //substr += sizeof(NTP_PEER_REACH) - 1;
+            //ntp_param_value = strtok(substr, ",");
+//
+            //reaches[i] = (int)(atoi(ntp_param_value));
+        //}
 
         /* Peer delay */
-        strncpy(buffer, ntp_message.data, sizeof(buffer));
+        //strncpy(buffer, ntp_message.data, sizeof(buffer));
         /* First go past the root delay */
-        if ((substr = strstr(buffer, NTP_ROOT_DELAY)))
-        {
-            substr += sizeof(NTP_ROOT_DELAY);
-            strncpy(buffer, substr, sizeof(buffer));
-            if ((substr = strstr(buffer, NTP_PEER_DELAY)))
-            {
-                substr += sizeof(NTP_PEER_DELAY) - 1;
-                ntp_param_value = strtok(substr, ",");
-
-                delays[i] = (double)(atof(ntp_param_value));
-            }
-        }
-
+        //if ((substr = strstr(buffer, NTP_ROOT_DELAY)))
+        //{
+            //substr += sizeof(NTP_ROOT_DELAY);
+            //strncpy(buffer, substr, sizeof(buffer));
+            //if ((substr = strstr(buffer, NTP_PEER_DELAY)))
+            //{
+                //substr += sizeof(NTP_PEER_DELAY) - 1;
+                //ntp_param_value = strtok(substr, ",");
+//
+                //delays[i] = (double)(atof(ntp_param_value));
+            //}
+        //}
+//
         /* Peer offset */
-        strncpy(buffer, ntp_message.data, sizeof(buffer));
-        if ((substr = strstr(buffer, NTP_PEER_OFFSET)))
-        {
-            substr += sizeof(NTP_PEER_OFFSET) - 1;
-            ntp_param_value = strtok(substr, ",");
-
-            offsets[i] = (double)(atof(ntp_param_value));
-        }
+        //strncpy(buffer, ntp_message.data, sizeof(buffer));
+        //if ((substr = strstr(buffer, NTP_PEER_OFFSET)))
+        //{
+            //substr += sizeof(NTP_PEER_OFFSET) - 1;
+            //ntp_param_value = strtok(substr, ",");
+//
+            //offsets[i] = (double)(atof(ntp_param_value));
+        //}
 
         /* Peer jitter */
-        strncpy(buffer, ntp_message.data, sizeof(buffer));
-        if ((substr = strstr(buffer, NTP_PEER_JITTER)))
-        {
-            substr += sizeof(NTP_PEER_JITTER) - 1;
-            ntp_param_value = strtok(substr, ",");
+        //strncpy(buffer, ntp_message.data, sizeof(buffer));
+        //if ((substr = strstr(buffer, NTP_PEER_JITTER)))
+        ////{
+            ////substr += sizeof(NTP_PEER_JITTER) - 1;
+            //ntp_param_value = strtok(substr, ",");
 
-            jitters[i] = (double)(atof(ntp_param_value));
-        }
+            //jitters[i] = (double)(atof(ntp_param_value));
+        //}
 
     }
 
