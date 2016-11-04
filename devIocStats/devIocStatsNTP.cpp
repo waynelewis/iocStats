@@ -569,151 +569,80 @@ void parse_ntp_sys_vars(
     //const char NTP_VERSION[] = "version=";
     //const char NTP_PROCESSOR[] = "processor=";
     //const char NTP_SYSTEM[] = "system=";
-    const char NTP_LEAP[] = "leap=";
-    const char NTP_STRATUM[] = "stratum=";
-    const char NTP_PRECISION[] = "precision=";
-    const char NTP_ROOT_DELAY[] = "rootdelay=";
-    const char NTP_ROOT_DISPERSION[] = "rootdisp=";
-    //const char NTP_REF_ID[] = "refid=";
-    //const char NTP_REF_TIME[] = "reftime=";
-    //const char NTP_CLOCK[] = "clock=";
-    //const char NTP_PEER[] = "peer=";
-    const char NTP_TC[] = "tc=";
-    const char NTP_MINTC[] = "mintc=";
-    const char NTP_OFFSET[] = "offset=";
-    const char NTP_FREQUENCY[] = "frequency=";
-    const char NTP_SYS_JITTER[] = "sys_jitter=";
-    const char NTP_CLOCK_JITTER[] = "clk_jitter=";
-    const char NTP_CLOCK_WANDER[] = "clk_wander=";
+    string NTP_LEAP ("leap=");
+    string NTP_STRATUM ("stratum=");
+    string NTP_PRECISION ("precision=");
+    string NTP_ROOT_DELAY ("rootdelay=");
+    string NTP_ROOT_DISPERSION ("rootdisp=");
+    //string NTP_REF_ID ("refid=");
+    //string NTP_REF_TIME ("reftime=");
+    //string NTP_CLOCK ("clock=");
+    //string NTP_PEER ("peer=");
+    string NTP_TC ("tc=");
+    string NTP_MINTC ("mintc=");
+    string NTP_OFFSET ("offset=");
+    string NTP_FREQUENCY ("frequency=");
+    string NTP_SYS_JITTER ("sys_jitter=");
+    string NTP_CLOCK_JITTER ("clk_jitter=");
+    string NTP_CLOCK_WANDER ("clk_wander=");
     
     /* Variables used to parse the NTP response string */
-    char buffer[DATA_SIZE];
-    char *substr;
-    char *ntp_param_value;
+    string ntp_data;
+    string ntp_param_value;
 
     /* Extract the NTP version number */
     ntp_version = (ntp_message->ver_mode & VER_MASK) >> VER_SHIFT;
     pval->ntpVersionNumber = ntp_version;
 
-    /* Leap second status */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_LEAP)))
-    {
-        substr += sizeof(NTP_LEAP) - 1;
-        ntp_param_value = strtok(substr, ",");
+    ntp_data = string(ntp_message->data);
 
-        pval->ntpLeapSecond = (int)(atoi(ntp_param_value));
-    }
+    /* Leap second status */
+    if (find_substring(ntp_data, NTP_LEAP, &ntp_param_value))
+        pval->ntpLeapSecond = (int)(atoi(ntp_param_value.c_str()));
 
     /* Stratum */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_STRATUM)))
-    {
-        substr += sizeof(NTP_STRATUM) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpStratum = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_STRATUM, &ntp_param_value))
+        pval->ntpStratum = (double)(atof(ntp_param_value.c_str()));
 
     /* Precision */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_PRECISION)))
-    {
-        substr += sizeof(NTP_PRECISION) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpPrecision = (int)(atoi(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_PRECISION, &ntp_param_value))
+        pval->ntpPrecision = (int)(atoi(ntp_param_value.c_str()));
 
     /* Root delay */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_ROOT_DELAY)))
-    {
-        substr += sizeof(NTP_ROOT_DELAY) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpRootDelay = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_ROOT_DELAY, &ntp_param_value))
+        pval->ntpRootDelay = (double)(atof(ntp_param_value.c_str()));
 
     /* Root dispersion */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_ROOT_DISPERSION)))
-    {
-        substr += sizeof(NTP_ROOT_DISPERSION) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpRootDispersion = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_ROOT_DISPERSION, &ntp_param_value))
+        pval->ntpRootDispersion = (double)(atof(ntp_param_value.c_str()));
 
     /* Time constant */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_TC)))
-    {
-        substr += sizeof(NTP_TC) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpTC = (int)(atoi(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_TC, &ntp_param_value))
+        pval->ntpTC = (int)(atoi(ntp_param_value.c_str()));
 
     /* Minimum time constant */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_MINTC)))
-    {
-        substr += sizeof(NTP_MINTC) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpMinTC = (int)(atoi(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_MINTC, &ntp_param_value))
+        pval->ntpMinTC = (int)(atoi(ntp_param_value.c_str()));
 
     /* Offset */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_OFFSET)))
-    {
-        substr += sizeof(NTP_OFFSET) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpOffset = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_OFFSET, &ntp_param_value))
+        pval->ntpOffset = (double)(atof(ntp_param_value.c_str()));
 
     /* Frequency */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_FREQUENCY)))
-    {
-        substr += sizeof(NTP_FREQUENCY) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpFrequency = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_FREQUENCY, &ntp_param_value))
+        pval->ntpFrequency = (double)(atof(ntp_param_value.c_str()));
 
     /* System jitter */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_SYS_JITTER)))
-    {
-        substr += sizeof(NTP_SYS_JITTER) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpSystemJitter = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_SYS_JITTER, &ntp_param_value))
+        pval->ntpSystemJitter = (double)(atof(ntp_param_value.c_str()));
 
     /* Clock jitter */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_CLOCK_JITTER)))
-    {
-        substr += sizeof(NTP_CLOCK_JITTER) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpClockJitter = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_CLOCK_JITTER, &ntp_param_value))
+        pval->ntpClockJitter = (double)(atof(ntp_param_value.c_str()));
 
     /* Clock wander */
-    strncpy(buffer, ntp_message->data, sizeof(buffer));
-    if ((substr = strstr(buffer, NTP_CLOCK_WANDER)))
-    {
-        substr += sizeof(NTP_CLOCK_WANDER) - 1;
-        ntp_param_value = strtok(substr, ",");
-
-        pval->ntpClockWander = (double)(atof(ntp_param_value));
-    }
+    if (find_substring(ntp_data, NTP_CLOCK_WANDER, &ntp_param_value))
+        pval->ntpClockWander = (double)(atof(ntp_param_value.c_str()));
 }
 
 int do_ntp_query(
@@ -802,7 +731,6 @@ int get_peer_stats(
     int ret;
 
     string ntp_data;
-    string substr;
     string ntp_param_value;
 
     string NTP_PEER_STRATUM ("stratum=");
@@ -826,11 +754,6 @@ int get_peer_stats(
     double max_offset;
     double min_stratum;
 
-    size_t separator;
-    size_t found;
-    size_t length;
-    size_t start;
-
     struct ntp_control ntp_message;
 
     // Iterate through the associated peers and gather the required data
@@ -844,14 +767,23 @@ int get_peer_stats(
         //strncpy(buffer, ntp_message.data, sizeof(buffer));
         ntp_data = string(ntp_message.data);
 
-        if (((found= ntp_data.find(NTP_PEER_STRATUM)) != string::npos))
-        {
-            separator = ntp_data.find(SEPARATOR, found);
-            start = found + NTP_PEER_STRATUM.length();
-            length = separator - start;
-            ntp_param_value = ntp_data.substr(start, length);
+        if (find_substring(ntp_data, NTP_PEER_STRATUM, &ntp_param_value))
             stratums[i] = atoi(ntp_param_value.c_str());
-        }
+
+        if (find_substring(ntp_data, NTP_PEER_POLL, &ntp_param_value))
+            polls[i] = atoi(ntp_param_value.c_str());
+
+        if (find_substring(ntp_data, NTP_PEER_REACH, &ntp_param_value))
+            reaches[i] = atoi(ntp_param_value.c_str());
+
+        if (find_substring(ntp_data, NTP_PEER_DELAY, 2, &ntp_param_value))
+            delays[i] = atof(ntp_param_value.c_str());
+
+        if (find_substring(ntp_data, NTP_PEER_OFFSET, &ntp_param_value))
+            offsets[i] = atof(ntp_param_value.c_str());
+
+        if (find_substring(ntp_data, NTP_PEER_JITTER, &ntp_param_value))
+            jitters[i] = atof(ntp_param_value.c_str());
 
         /* Peer poll */
         //strncpy(buffer, ntp_message.data, sizeof(buffer));
@@ -952,6 +884,63 @@ int get_peer_stats(
 
     return NTP_NO_ERROR;
 }
+
+bool find_substring(const string data, const string pattern, string *value)
+{
+    size_t found;
+    size_t start;
+    size_t separator;
+    size_t length;
+    bool result = FALSE;
+
+    const string SEPARATOR (",");
+
+    if (((found= data.find(pattern)) != string::npos))
+    {
+        result = TRUE;
+        separator = data.find(SEPARATOR, found);
+        start = found + pattern.length();
+        length = separator - start;
+        *value = data.substr(start, length);
+    }
+    return result;
+}
+
+bool find_substring(
+        const string data, 
+        const string pattern, 
+        int occurrence,
+        string *value)
+{
+    size_t found;
+    size_t start;
+    size_t separator;
+    size_t length;
+    bool result = FALSE;
+
+    int num_found = 0;
+    start = 0;
+
+    const string SEPARATOR (",");
+
+    while (num_found < occurrence)
+    {
+        start = data.find(pattern, start+1);
+        num_found++;
+    }
+
+    found = start;
+    if (found != string::npos)
+    {
+        separator = data.find(SEPARATOR, found);
+        start = found + pattern.length();
+        length = separator - start;
+        *value = data.substr(start, length);
+        result = TRUE;
+    }
+    return result;
+}
+
 
 int get_association_ids(
         unsigned short *association_ids, 

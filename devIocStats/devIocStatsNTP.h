@@ -25,6 +25,9 @@
 /* Maximum number of peers that we report information for */
 #define NTP_MAX_PEERS 10
 
+#include <string>
+using namespace std;
+
 // Data containing structures
 typedef struct _ntpPeerData {
         int ntpPeerSelectionStatus;
@@ -131,6 +134,17 @@ struct ntp_control {
 // Function prototypes
 
 static void poll_ntp_daemon(void);
+
+bool find_substring(
+        const string data,
+        const string pattern,
+        string *result);
+
+bool find_substring(
+        const string data,
+        const string pattern,
+        int occurrence,
+        string *result);
 
 int do_ntp_query(
         unsigned char op_code, 
