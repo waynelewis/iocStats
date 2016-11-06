@@ -963,12 +963,11 @@ int get_association_ids(
     association_count = 0;
     for (i = 0; i < ntp_data.length(); i += 4)
     {
-        // Decode the association ID
-        association_id = 0x100 * (unsigned char) ntp_data.c_str()[i+1];
-        association_id += (unsigned char) ntp_data.c_str()[i];
+        association_id = 0x100 * (unsigned char) ntp_data.at(i+1);
+        association_id += (unsigned char) ntp_data.at(i);
 
         // Get the peer selection status
-        peer_sel = (ntp_data.c_str()[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
+        peer_sel = (ntp_data.at(i+2) & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
 
         // Check if we have reached the end of the IDs
         if (association_id == 0)
