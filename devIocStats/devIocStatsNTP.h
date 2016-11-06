@@ -158,7 +158,6 @@ bool find_substring(
 int do_ntp_query(
         unsigned char op_code, 
         unsigned short association_id,
-        struct ntp_control *ntp_message,
         string *ntp_data
         );
 
@@ -182,7 +181,6 @@ void parse_ntp_associations(
         ntpStatus *pval);
 
 void parse_ntp_sys_vars(
-        struct ntp_control *ntp_message,
         ntpStatus *pval, 
         string ntp_data);
 

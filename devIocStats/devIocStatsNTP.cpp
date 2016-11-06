@@ -473,7 +473,6 @@ int devIocStatsInitNtpStats (void) {
 
 int devIocStatsGetNtpStats (ntpStatus *pval)
 {
-    struct ntp_control ntp_message;
     int ret;
 
     unsigned short association_ids[NTP_MAX_PEERS];
@@ -485,11 +484,10 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     if (( ret = do_ntp_query(
                     NTP_OP_READ_VAR, 
                     NTP_SYS_ASSOCIATION_ID, 
-                    &ntp_message,
                     &ntp_data) != 0))
         return ret;
 
-    parse_ntp_sys_vars(&ntp_message, pval, ntp_data);
+    parse_ntp_sys_vars(pval, ntp_data);
 
     // Perform an NTP status query to get the association IDs
     if ((ret = get_association_ids(
@@ -561,16 +559,9 @@ void parse_ntp_associations(
 }
 
 void parse_ntp_sys_vars(
-        struct ntp_control *ntp_message,
         ntpStatus *pval,
         string ntp_data)
 {
-    int ntp_version;
-    //int ntp_mode;
-    //int ntp_more_bit;
-    //int ntp_error_bit;
-    //int ntp_response;
-
     //string NTP_VERSION[] = "version=";
     //string NTP_PROCESSOR[] = "processor=";
     //string NTP_SYSTEM[] = "system=";
@@ -594,12 +585,6 @@ void parse_ntp_sys_vars(
     /* Variables used to parse the NTP response string */
     //string ntp_data;
     string ntp_param_value;
-
-    /* Extract the NTP version number */
-    ntp_version = (ntp_message->ver_mode & VER_MASK) >> VER_SHIFT;
-    pval->ntpVersionNumber = ntp_version;
-
-    //ntp_data = string(ntp_message->data);
 
     /* Leap second status */
     if (find_substring(ntp_data, NTP_LEAP, &ntp_param_value))
@@ -653,11 +638,10 @@ void parse_ntp_sys_vars(
 int do_ntp_query(
         unsigned char op_code,
         unsigned short association_id,
-        struct ntp_control *ntp_message,
         string *ntp_data
         )
 {
-    struct sockaddr_in  ntp_socket;
+    struct sockaddr_in ntp_socket;
     struct in_addr address;
     int sd;
     int ret;
@@ -670,13 +654,13 @@ int do_ntp_query(
 
     string ntp_data_result;
 
-    struct ntp_control *ntp_message_tmp;
+    struct ntp_control *ntp_message;
+    ntp_message = (struct ntp_control *)malloc(sizeof(struct ntp_control));
 
     vector <ntpDataFragment> ntp_data_fragments;
 
     ntpDataFragment ntp_data_fragment = ntpDataFragment();
 
-    ntp_message_tmp = (struct ntp_control *)malloc(sizeof(struct ntp_control));
 
     // Set up the socket to the local NTP daemon
     inet_aton("127.0.0.1", &address);
@@ -713,7 +697,10 @@ int do_ntp_query(
 
     while (more_bit == 1)
     {
-        memset(ntp_message_tmp, 0, sizeof(struct ntp_control));
+        // Clear the message structure contents prior to receiving the new
+        // message
+        memset(ntp_message, 0, sizeof(struct ntp_control));
+
         // Wait for a response
         ret = select(sd+1, &fds, (fd_set *)0, (fd_set *)0, &timeout_val);
 
@@ -723,18 +710,16 @@ int do_ntp_query(
         if (ret == -1)
             return NTP_SELECT_ERROR;
 
-        // TODO; Make sure the full response is read from the daemon
-        // TODO: Allow for UDP packet ordering
-        //
         // Read the response
-        if ((ret = recv(sd, ntp_message_tmp, sizeof(*ntp_message), 0)) < 0)
+        if ((ret = recv(sd, ntp_message, sizeof(*ntp_message), 0)) < 0)
             return NTP_DAEMON_COMMS_ERROR;
 
-        more_bit = (ntp_message_tmp->op_code & MORE_MASK) >> MORE_SHIFT;
+        // Extract the status bit that tells us if we have more data waiting
+        more_bit = (ntp_message->op_code & MORE_MASK) >> MORE_SHIFT;
 
-        ntp_data_fragment.offset = reverse(ntp_message_tmp->offset);
-        ntp_data_fragment.count = reverse(ntp_message_tmp->count);
-        ntp_data_fragment.data = ntp_message_tmp->data;
+        ntp_data_fragment.offset = reverse(ntp_message->offset);
+        ntp_data_fragment.count = reverse(ntp_message->count);
+        ntp_data_fragment.data = ntp_message->data;
 
         ntp_data_fragments.push_back(ntp_data_fragment);
 
@@ -753,10 +738,9 @@ int do_ntp_query(
                 break;
             }
 
-    memcpy(ntp_message, ntp_message_tmp, sizeof(ntp_control));
     *ntp_data = ntp_data_result;
 
-    free(ntp_message_tmp);
+    free(ntp_message);
 
     // Close the socket now that we've received the message
     close(sd);
@@ -826,23 +810,15 @@ int get_peer_stats(
     double max_offset;
     double min_stratum;
 
-    struct ntp_control ntp_message;
-    //string ntp_data;
-
     // Iterate through the associated peers and gather the required data
     for (i = 0; i < num_peers; i++)
     {
         ret = do_ntp_query(
                 NTP_OP_READ_STS, 
                 association_ids[i], 
-                &ntp_message, 
                 &ntp_data);
         if (ret < 0)
             return ret;
-
-        /* Peer stratum */
-        //strncpy(buffer, ntp_message.data, sizeof(buffer));
-        //ntp_data = string(ntp_message.data);
 
         if (find_substring(ntp_data, NTP_PEER_STRATUM, &ntp_param_value))
             stratums[i] = atoi(ntp_param_value.c_str());
@@ -968,8 +944,7 @@ int get_association_ids(
         int *num_associations,
         int max_association_ids)
 {
-    struct ntp_control ntp_message;
-    int i;
+    unsigned int i;
     int ret;
     int association_count;
     unsigned short association_id;
@@ -980,21 +955,20 @@ int get_association_ids(
     ret = do_ntp_query(
             NTP_OP_READ_STS, 
             NTP_SYS_ASSOCIATION_ID, 
-            &ntp_message,
             &ntp_data);
     if (ret != 0)
         return ret;
 
     // Extract the association IDs from the response
     association_count = 0;
-    for (i = 0; i < DATA_SIZE; i += 4)
+    for (i = 0; i < ntp_data.length(); i += 4)
     {
         // Decode the association ID
-        association_id = 0x100 * (unsigned char) ntp_message.data[i+1];
-        association_id += (unsigned char) ntp_message.data[i];
+        association_id = 0x100 * (unsigned char) ntp_data.c_str()[i+1];
+        association_id += (unsigned char) ntp_data.c_str()[i];
 
         // Get the peer selection status
-        peer_sel = (ntp_message.data[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
+        peer_sel = (ntp_data.c_str()[i+2] & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
 
         // Check if we have reached the end of the IDs
         if (association_id == 0)
