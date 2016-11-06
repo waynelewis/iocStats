@@ -1,57 +1,17 @@
 /*************************************************************************\
-* Copyright (c) 2009-2010 Helmholtz-Zentrum Berlin
-*     fuer Materialien und Energie GmbH.
-* Copyright (c) 2002 The University of Chicago, as Operator of Argonne
-*     National Laboratory.
-* Copyright (c) 2002 The Regents of the University of California, as
-*     Operator of Los Alamos National Laboratory.
+* Copyright (c) 2016 Osprey DCS
+*
 * EPICS BASE Versions 3.13.7
 * and higher are distributed subject to a Software License Agreement found
 * in file LICENSE that is included with this distribution.
 \*************************************************************************/
 
 /* devIocStatsNTP.c - device support routines for NTP statistics - based on */
-/* devIocStatsAnalog.c - Analog Device Support Routines for IOC statistics - based on */
-/* devVXStats.c - Device Support Routines for vxWorks statistics */
 /*
- *	Author: Jim Kowalkowski
- *	Date:  2/1/96
+ *	Author: Wayne Lewis
+ *	Date:  2016-11-06
  *
- * Modifications at LBNL:
- * -----------------
- * 	97-11-21	SRJ	Added reports of max free mem block,
- *				Channel Access connections and CA clients.
- *				Repaired "artificial load" function.
- *	98-01-28	SRJ	Changes per M. Kraimer's devVXStats of 97-11-19:
- *				explicitly reports file descriptors used;
- *				uses Kraimer's method for CPU load average;
- *				some code simplification and name changes.
- *
- * Modifications for SNS at ORNL:
- * -----------------
- *	03-01-29	CAL 	Add stringin device support.
- *	03-05-08	CAL	Add minMBuf
- *
- * Modifications for LCLS/SPEAR at SLAC:
- * ----------------
- *  08-09-29    Stephanie Allison - moved os-specific parts to
- *              os/<os>/devIocStatsOSD.h and devIocStatsOSD.c.
- *              Split into devIocStatsAnalog, devIocStatsString,
- *              devIocStatTest.
- *  2009-05-15  Ralph Lange (HZB/BESSY)
- *              Restructured OSD parts
- *  2010-07-14  Ralph Lange (HZB/BESSY)
- *              Added CPU Utilization (IOC load), number of CPUs
- *  2010-08-12  Stephanie Allison (SLAC):
- *              Added RAM workspace support developed by
- *              Charlie Xu.
- *  2015-04-27  Stephanie Allison (SLAC):
- *              Added process ID and parent process ID.
- *              Perform statistics in a task separate from the low priority
- *              callback task.
- *  2016-10-31  Wayne Lewis (Osprey DCS)
- *              Created new file from devIOCStatsAnalog.c to support NTP
- *              statistics.
+ * 
  */
 
 /*
@@ -86,59 +46,37 @@
         ntp_peer_delay i    - NTP daemon sync status
         ntp_peer_offset i   - NTP daemon sync status
         ntp_peer_jitter i   - NTP daemon sync status
+        */
 
- * scan rates are all in seconds
 
- default rates:
- 20 - daemon scan rate
-*/
-
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
 #include <string>
 #include <vector>
 #include <iostream>
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
+
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <rsrv.h>
 
 #include <epicsThread.h>
-#include <epicsTimer.h>
 #include <epicsMutex.h>
-
-#include <rsrv.h>
 #include <dbAccess.h>
 #include <dbStaticLib.h>
 #include <dbScan.h>
 #include <devSup.h>
 #include <menuConvert.h>
 #include <aiRecord.h>
-#include <aoRecord.h>
 #include <recGbl.h>
 #include <epicsExport.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <stdio.h>
+#include <epicsTypes.h>
 
-//#include "devIocStats.h"
-#include "epicsTypes.h"
 #include "devIocStatsNTP.h"
 
 using namespace std;
-
-struct aStatsNTP
-{
-    long		number;
-    DEVSUPFUN	report;
-    DEVSUPFUN	init;
-    DEVSUPFUN	init_record;
-    DEVSUPFUN	get_ioint_info;
-    DEVSUPFUN	read_write;
-    DEVSUPFUN	special_linconv;
-};
-typedef struct aStatsNTP aStatsNTP;
-
-static IOSCANPVT ioscanpvt;
 
 struct pvtNTPArea
 {
@@ -217,6 +155,18 @@ static validNTPGetParms statsGetNTPParms[]={
 	{ "",NULL }
 };
 
+struct aStatsNTP
+{
+    long		number;
+    DEVSUPFUN	report;
+    DEVSUPFUN	init;
+    DEVSUPFUN	init_record;
+    DEVSUPFUN	get_ioint_info;
+    DEVSUPFUN	read_write;
+    DEVSUPFUN	special_linconv;
+};
+typedef struct aStatsNTP aStatsNTP;
+
 aStatsNTP devAiNTPStats={ 
     6,
     NULL,
@@ -228,23 +178,22 @@ aStatsNTP devAiNTPStats={
 
 epicsExportAddress(dset,devAiNTPStats);
 
+static IOSCANPVT ioscanpvt;
 static ntpStatus ntpstatus;
 static epicsMutexId ntp_scan_mutex;
 static unsigned short ntp_message_sequence_id;
 
 static void poll_ntp_daemon(void)
 {
-
+    // Polling function to get data from the NTP daemon
     while(1)
     {
-
         devIocStatsGetNtpStats(&ntpstatus);
 
         scanIoRequest(ioscanpvt);
         epicsThreadSleep(20);
     }
 }
-
 
 static long ai_ntp_init(int pass)
 {
@@ -431,12 +380,6 @@ static void statsNTPMinPeerStratum(double* val, int)
 {
     *val = (double)ntpstatus.ntpMinPeerStratum;
 }
-/*
-static void statsNTPSyncStatus(double* val)
-{
-    *val = (double)ntpstatus.ntpSyncStatus;
-}
-*/
 static void statsNTPPeerSelection(double* val, int peer)
 {
     *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerSelectionStatus;
@@ -466,10 +409,6 @@ static void statsNTPPeerJitter(double* val, int peer)
     *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerJitter;
 }
 
-
-int devIocStatsInitNtpStats (void) {
-    return 0;
-}
 
 int devIocStatsGetNtpStats (ntpStatus *pval)
 {
@@ -504,7 +443,6 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
             pval);
 
     // Get stats from the peers
-
     ret = get_peer_stats(
             association_ids,
             num_associations,
@@ -514,7 +452,6 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
         return ret;
 
     return NTP_NO_ERROR;
-
 }
 
 void parse_ntp_associations(
@@ -525,7 +462,7 @@ void parse_ntp_associations(
 {
     int i;
     int num_good_peers;
-    int reference_peer;
+    bool reference_peer;
 
     reference_peer = FALSE;
 
@@ -582,8 +519,6 @@ void parse_ntp_sys_vars(
     string NTP_CLOCK_JITTER ("clk_jitter=");
     string NTP_CLOCK_WANDER ("clk_wander=");
     
-    /* Variables used to parse the NTP response string */
-    //string ntp_data;
     string ntp_param_value;
 
     /* Leap second status */
@@ -883,23 +818,10 @@ int get_peer_stats(
 
 bool find_substring(const string data, const string pattern, string *value)
 {
-    size_t found;
-    size_t start;
-    size_t separator;
-    size_t length;
-    bool result = FALSE;
+    // Call to this version of the function will give the first instance of the
+    // search string.
 
-    const string SEPARATOR (",");
-
-    if (((found= data.find(pattern)) != string::npos))
-    {
-        result = TRUE;
-        separator = data.find(SEPARATOR, found);
-        start = found + pattern.length();
-        length = separator - start;
-        *value = data.substr(start, length);
-    }
-    return result;
+    return find_substring(data, pattern, 1, value);
 }
 
 bool find_substring(
@@ -908,6 +830,9 @@ bool find_substring(
         int occurrence,
         string *value)
 {
+    // General version of the substring function, with an option to find a
+    // specific occurrence of the search patttern.
+
     size_t found;
     size_t start;
     size_t separator;
@@ -919,17 +844,19 @@ bool find_substring(
 
     const string SEPARATOR (",");
 
+    // Search for the required occurrence number
     while (num_found < occurrence)
     {
-        start = data.find(pattern, start+1);
+        found = data.find(pattern, start);
         num_found++;
+        if (found != string::npos)
+            start = found + pattern.length();
     }
 
-    found = start;
+    // Extract the remaining string up until the next separator
     if (found != string::npos)
     {
         separator = data.find(SEPARATOR, found);
-        start = found + pattern.length();
         length = separator - start;
         *value = data.substr(start, length);
         result = TRUE;
@@ -951,6 +878,8 @@ int get_association_ids(
     int peer_sel;
     string ntp_data;
 
+    // Finds the integer values used to identify the NTP peer servers
+    //
     // Send a system level read status query
     ret = do_ntp_query(
             NTP_OP_READ_STS, 
