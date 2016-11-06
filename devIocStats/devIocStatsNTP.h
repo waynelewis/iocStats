@@ -63,6 +63,15 @@ typedef struct _ntpStatus {
         ntpPeerData ntp_peer_data[NTP_MAX_PEERS];
 } ntpStatus;
 
+class ntpDataFragment {
+    public:
+        int offset;
+        int count;
+        string data;
+};
+
+
+
 /* NTP status functions */
 //extern int devIocStatsInitNtpStats (void);
 int devIocStatsGetNtpStats (ntpStatus *pval);
@@ -149,7 +158,8 @@ bool find_substring(
 int do_ntp_query(
         unsigned char op_code, 
         unsigned short association_id,
-        struct ntp_control *ntp_message
+        struct ntp_control *ntp_message,
+        string *ntp_data
         );
 
 int get_association_ids(
@@ -173,7 +183,10 @@ void parse_ntp_associations(
 
 void parse_ntp_sys_vars(
         struct ntp_control *ntp_message,
-        ntpStatus *pval);
+        ntpStatus *pval, 
+        string ntp_data);
+
+unsigned short reverse(unsigned short);
 
 #endif /*DEV_IOC_STATS_NTP_H*/
 
