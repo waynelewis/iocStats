@@ -60,7 +60,6 @@
 #include <rsrv.h>
 
 #include <epicsThread.h>
-#include <epicsMutex.h>
 #include <dbAccess.h>
 #include <dbStaticLib.h>
 #include <dbScan.h>
@@ -69,7 +68,6 @@
 #include <aiRecord.h>
 #include <recGbl.h>
 #include <epicsExport.h>
-#include <epicsTypes.h>
 
 #define epicsExportSharedSymbols
 #include <shareLib.h>
@@ -154,7 +152,6 @@ volatile bool ntp_daemon_disable = FALSE;
 
 static IOSCANPVT ioscanpvt;
 static ntpStatus ntpstatus;
-static epicsMutexId ntp_scan_mutex;
 static epicsThreadId ntp_poll_thread_id;
 static unsigned short ntp_message_sequence_id;
 
@@ -193,8 +190,6 @@ static long ntp_init(int pass)
     }
 
     scanIoInit(&ioscanpvt);
-
-    ntp_scan_mutex = epicsMutexMustCreate();
 
     return 0;
 }
@@ -236,7 +231,7 @@ static long ntp_init_record(void* prec)
         {
             // Peer variable
             parameter = parm.substr(0, index);
-            peer = atoi(parm.substr(index+1).c_str());
+            peer = (int)strtoul(parm.substr(index+1).c_str(), NULL, 10);
         }
 
         // Find the correct function in the list
@@ -287,9 +282,7 @@ static long ntp_read(void* prec)
 
     if (!pvtNTP) return S_dev_badInpType;
 
-    epicsMutexLock(ntp_scan_mutex);
     statsGetNTPParms[pvtNTP->index].func(&val,pvtNTP->peer);
-    epicsMutexUnlock(ntp_scan_mutex);
     pr->val = val;
     pr->udf = 0;
     return 2; /* don't convert */
@@ -508,51 +501,51 @@ void parse_ntp_sys_vars(
 
     /* Leap second status */
     if (find_substring(ntp_data, NTP_LEAP, &ntp_param_value))
-        pval->ntpLeapSecond = (int)(atoi(ntp_param_value.c_str()));
+        pval->ntpLeapSecond = (int)(strtoul(ntp_param_value.c_str(), NULL, 10));
 
     /* Stratum */
     if (find_substring(ntp_data, NTP_STRATUM, &ntp_param_value))
-        pval->ntpStratum = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpStratum = (double)(strtof(ntp_param_value.c_str(), NULL));
 
     /* Precision */
     if (find_substring(ntp_data, NTP_PRECISION, &ntp_param_value))
-        pval->ntpPrecision = (int)(atoi(ntp_param_value.c_str()));
+        pval->ntpPrecision = (int)(strtol(ntp_param_value.c_str(), NULL, 10));
 
     /* Root delay */
     if (find_substring(ntp_data, NTP_ROOT_DELAY, &ntp_param_value))
-        pval->ntpRootDelay = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpRootDelay = (double)(strtof(ntp_param_value.c_str(), NULL));
 
     /* Root dispersion */
     if (find_substring(ntp_data, NTP_ROOT_DISPERSION, &ntp_param_value))
-        pval->ntpRootDispersion = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpRootDispersion = (double)(strtof(ntp_param_value.c_str(), NULL));
 
     /* Time constant */
     if (find_substring(ntp_data, NTP_TC, &ntp_param_value))
-        pval->ntpTC = (int)(atoi(ntp_param_value.c_str()));
+        pval->ntpTC = (int)(strtoul(ntp_param_value.c_str(), NULL, 10));
 
     /* Minimum time constant */
     if (find_substring(ntp_data, NTP_MINTC, &ntp_param_value))
-        pval->ntpMinTC = (int)(atoi(ntp_param_value.c_str()));
+        pval->ntpMinTC = (int)(strtoul(ntp_param_value.c_str(), NULL, 10));
 
     /* Offset */
     if (find_substring(ntp_data, NTP_OFFSET, &ntp_param_value))
-        pval->ntpOffset = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpOffset = (double)(strtof(ntp_param_value.c_str(), NULL));
 
     /* Frequency */
     if (find_substring(ntp_data, NTP_FREQUENCY, &ntp_param_value))
-        pval->ntpFrequency = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpFrequency = (double)(strtof(ntp_param_value.c_str(), NULL));
 
     /* System jitter */
     if (find_substring(ntp_data, NTP_SYS_JITTER, &ntp_param_value))
-        pval->ntpSystemJitter = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpSystemJitter = (double)(strtof(ntp_param_value.c_str(), NULL));
 
     /* Clock jitter */
     if (find_substring(ntp_data, NTP_CLOCK_JITTER, &ntp_param_value))
-        pval->ntpClockJitter = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpClockJitter = (double)(strtof(ntp_param_value.c_str(), NULL));
 
     /* Clock wander */
     if (find_substring(ntp_data, NTP_CLOCK_WANDER, &ntp_param_value))
-        pval->ntpClockWander = (double)(atof(ntp_param_value.c_str()));
+        pval->ntpClockWander = (double)(strtof(ntp_param_value.c_str(), NULL));
 }
 
 int do_ntp_query(
@@ -767,22 +760,22 @@ int get_peer_stats(
             return ret;
 
         if (find_substring(ntp_data, NTP_PEER_STRATUM, &ntp_param_value))
-            stratums[i] = atoi(ntp_param_value.c_str());
+            stratums[i] = (int)strtoul(ntp_param_value.c_str(), NULL, 10);
 
         if (find_substring(ntp_data, NTP_PEER_POLL, &ntp_param_value))
-            polls[i] = atoi(ntp_param_value.c_str());
+            polls[i] = (int)strtoul(ntp_param_value.c_str(), NULL, 10);
 
         if (find_substring(ntp_data, NTP_PEER_REACH, &ntp_param_value))
-            reaches[i] = atoi(ntp_param_value.c_str());
+            reaches[i] = (int)strtoul(ntp_param_value.c_str(), NULL, 16);
 
         if (find_substring(ntp_data, NTP_PEER_DELAY, 2, &ntp_param_value))
-            delays[i] = atof(ntp_param_value.c_str());
+            delays[i] = strtof(ntp_param_value.c_str(), NULL);
 
         if (find_substring(ntp_data, NTP_PEER_OFFSET, &ntp_param_value))
-            offsets[i] = atof(ntp_param_value.c_str());
+            offsets[i] = strtof(ntp_param_value.c_str(), NULL);
 
         if (find_substring(ntp_data, NTP_PEER_JITTER, &ntp_param_value))
-            jitters[i] = atof(ntp_param_value.c_str());
+            jitters[i] = strtof(ntp_param_value.c_str(), NULL);
     }
 
     // Iterate through the gathered data and extract the required values
