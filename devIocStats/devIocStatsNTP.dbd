@@ -1,0 +1,2 @@
+device(ai,INST_IO,devAiNTPStats,"IOC NTP stats")
+registrar(devIocStatsNTPRegister)

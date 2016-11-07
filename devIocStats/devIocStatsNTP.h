@@ -186,5 +186,10 @@ void parse_ntp_sys_vars(
 
 unsigned short reverse(unsigned short);
 
+epicsShareFunc void devIocStatsNTPSetPollRate(const int rate);
+epicsShareFunc void devIocStatsNTPDisable(void);
+epicsShareFunc void devIocStatsNTPEnable(void);
+
+
 #endif /*DEV_IOC_STATS_NTP_H*/
 

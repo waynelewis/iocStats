@@ -74,6 +74,10 @@
 #include <epicsExport.h>
 #include <epicsTypes.h>
 
+#define epicsExportSharedSymbols
+#include <shareLib.h>
+#include <iocsh.h>
+
 #include "devIocStatsNTP.h"
 
 using namespace std;
@@ -178,9 +182,14 @@ aStatsNTP devAiNTPStats={
 
 epicsExportAddress(dset,devAiNTPStats);
 
+// Default the daemon poll rate to 20 seconds
+volatile int ntp_daemon_poll_rate = 20;
+volatile bool ntp_daemon_disable = FALSE;
+
 static IOSCANPVT ioscanpvt;
 static ntpStatus ntpstatus;
 static epicsMutexId ntp_scan_mutex;
+static epicsThreadId ntp_poll_thread_id;
 static unsigned short ntp_message_sequence_id;
 
 static void poll_ntp_daemon(void)
@@ -188,10 +197,13 @@ static void poll_ntp_daemon(void)
     // Polling function to get data from the NTP daemon
     while(1)
     {
+        if (ntp_daemon_disable == TRUE)
+            epicsThreadSuspendSelf();
+
         devIocStatsGetNtpStats(&ntpstatus);
 
         scanIoRequest(ioscanpvt);
-        epicsThreadSleep(20);
+        epicsThreadSleep(ntp_daemon_poll_rate);
     }
 }
 
@@ -201,12 +213,14 @@ static long ai_ntp_init(int pass)
     if (pass) return 0;
 
     // Create a thread to poll the NTP daemon and populate the data structure
-    if (epicsThreadCreate(
+    ntp_poll_thread_id = epicsThreadCreate(
                 "NTP_poller_thread",
                 epicsThreadPriorityLow,
                 epicsThreadGetStackSize(epicsThreadStackSmall),
                 (EPICSTHREADFUNC)poll_ntp_daemon,
-                NULL) == NULL)
+                NULL);
+
+    if (ntp_poll_thread_id == NULL)
     {
         fprintf(stderr, "epicsThreadCreate failure\n");
         return -1;
@@ -917,4 +931,63 @@ int get_association_ids(
     return 0;
 }
 
+static const iocshArg devIocStatsNTPSetPollRateArg0 = {"rate", iocshArgInt};
+
+static const iocshArg *const devIocStatsNTPSetPollRateArgs[] = {
+    &devIocStatsNTPSetPollRateArg0};
+
+static const iocshFuncDef devIocStatsNTPSetPollRateDef = {
+    "devIocStatsNTPSetPollRate",
+    1,
+    devIocStatsNTPSetPollRateArgs};
+
+epicsShareFunc void devIocStatsNTPSetPollRate(const int rate)
+{
+    ntp_daemon_poll_rate = rate;
+}
+
+static void devIocStatsNTPSetPollRateCall(const iocshArgBuf * args)
+{
+    devIocStatsNTPSetPollRate(args[0].ival);
+}
+
+static const iocshFuncDef devIocStatsNTPDisableDef = {
+    "devIocStatsNTPDisable",
+    0,
+    NULL};
+
+epicsShareFunc void devIocStatsNTPDisable(void)
+{
+    ntp_daemon_disable = TRUE;
+}
+
+static void devIocStatsNTPDisableCall(const iocshArgBuf * args)
+{
+    devIocStatsNTPDisable();
+}
+
+static const iocshFuncDef devIocStatsNTPEnableDef = {
+    "devIocStatsNTPEnable",
+    0,
+    NULL};
+
+epicsShareFunc void devIocStatsNTPEnable(void)
+{
+    ntp_daemon_disable = FALSE;
+    epicsThreadResume(ntp_poll_thread_id);
+}
+
+static void devIocStatsNTPEnableCall(const iocshArgBuf * args)
+{
+    devIocStatsNTPEnable();
+}
+
+static void devIocStatsNTPRegister(void)
+{
+    iocshRegister(&devIocStatsNTPSetPollRateDef, devIocStatsNTPSetPollRateCall);
+    iocshRegister(&devIocStatsNTPEnableDef, devIocStatsNTPEnableCall);
+    iocshRegister(&devIocStatsNTPDisableDef, devIocStatsNTPDisableCall);
+}
+
+epicsExportRegistrar(devIocStatsNTPRegister);
 

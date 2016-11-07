@@ -7,6 +7,7 @@ include $(TOP)/configure/CONFIG
 
 # For DTYP="IOC stats"
 DBD += devIocStats.dbd
+DBD += devIocStatsNTP.dbd
 
 # For DTYP="VX stats"
 DBD += devVxStats.dbd
