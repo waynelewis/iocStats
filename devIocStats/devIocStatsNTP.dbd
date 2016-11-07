@@ -1,2 +1,2 @@
-device(ai,INST_IO,devAiNTPStats,"IOC NTP stats")
+device(ai,INST_IO,devNTPStats,"IOC NTP stats")
 registrar(devIocStatsNTPRegister)

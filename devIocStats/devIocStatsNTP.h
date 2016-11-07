@@ -2,23 +2,17 @@
 #define DEV_IOC_STATS_NTP_H
 
 /*************************************************************************\
-* Copyright (c) 2009-2010 Helmholtz-Zentrum Berlin
-*     fuer Materialien und Energie GmbH.
-* Copyright (c) 2002 The University of Chicago, as Operator of Argonne
-*     National Laboratory.
-* Copyright (c) 2002 The Regents of the University of California, as
-*     Operator of Los Alamos National Laboratory.
+* Copyright (c) 2016 Osprey DCS
+*
 * EPICS BASE Versions 3.13.7
 * and higher are distributed subject to a Software License Agreement found
 * in file LICENSE that is included with this distribution.
 \*************************************************************************/
 
-/* devIocStats.h -  Device Support Include for IOC statistics - based on */
-/* devVXStats.c - Device Support Routines for vxWorks statistics */
+/* devIocStatsNTP.c - device support routines for NTP statistics - based on */
 /*
- *	Author: Jim Kowalkowski
- *	Date:  2/1/96
- *
+ *  Author: Wayne Lewis
+ *  Date:  2016-11-06
  */
 
 /* NTP definitions */
@@ -27,6 +21,36 @@
 
 #include <string>
 using namespace std;
+
+// Record interface structures 
+struct pvtNTPArea
+{
+    int index;
+    int type;
+    int peer;
+};
+typedef struct pvtNTPArea pvtNTPArea;
+
+typedef void (*statNTPGetFunc)(double*, int);
+
+struct validNTPGetParms
+{
+    string name;
+    statNTPGetFunc func;
+};
+typedef struct validNTPGetParms validNTPGetParms;
+
+struct aStatsNTP
+{
+    long		number;
+    DEVSUPFUN	report;
+    DEVSUPFUN	init;
+    DEVSUPFUN	init_record;
+    DEVSUPFUN	get_ioint_info;
+    DEVSUPFUN	read_write;
+    DEVSUPFUN	special_linconv;
+};
+typedef struct aStatsNTP aStatsNTP;
 
 // Data containing structures
 typedef struct _ntpPeerData {
@@ -40,7 +64,6 @@ typedef struct _ntpPeerData {
 } ntpPeerData;
 
 typedef struct _ntpStatus {
-        int ntpVersionNumber;
         int ntpLeapSecond;
         int ntpStratum;
         int ntpPrecision;

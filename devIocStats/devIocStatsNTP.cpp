@@ -10,8 +10,6 @@
 /*
  *	Author: Wayne Lewis
  *	Date:  2016-11-06
- *
- * 
  */
 
 /*
@@ -20,7 +18,6 @@
 	information are:
 
 	ai (DTYP="IOC stats NTP"):
-        ntp_version         - NTP version number
         ntp_leap_second     - NTP leap second status
         ntp_stratum         - NTP server stratum
         ntp_precision       - NTP precision
@@ -82,29 +79,11 @@
 
 using namespace std;
 
-struct pvtNTPArea
-{
-    int index;
-    int type;
-    int peer;
-};
-typedef struct pvtNTPArea pvtNTPArea;
+static long ntp_init(int pass);
+static long ntp_init_record(void*);
+static long ntp_read(void*);
+static long ntp_ioint_info(int cmd,void* pr,IOSCANPVT* iopvt);
 
-typedef void (*statNTPGetFunc)(double*, int);
-
-struct validNTPGetParms
-{
-    string name;
-    statNTPGetFunc func;
-};
-typedef struct validNTPGetParms validNTPGetParms;
-
-static long ai_ntp_init(int pass);
-static long ai_ntp_init_record(aiRecord*);
-static long ai_ntp_read(aiRecord*);
-static long ai_ntp_ioint_info(int cmd,aiRecord* pr,IOSCANPVT* iopvt);
-
-static void statsNTPVersion(double *, int peer=-1);
 static void statsNTPLeapSecond(double *, int peer=-1);
 static void statsNTPStratum(double *, int peer=-1);
 static void statsNTPPrecision(double *, int peer=-1);
@@ -131,7 +110,6 @@ static void statsNTPPeerOffset(double *, int);
 static void statsNTPPeerJitter(double *, int);
 
 static validNTPGetParms statsGetNTPParms[]={
-    { "ntp_version",        statsNTPVersion },
     { "ntp_leap_second",    statsNTPLeapSecond },
     { "ntp_stratum",        statsNTPStratum },
     { "ntp_precision",      statsNTPPrecision },
@@ -159,28 +137,16 @@ static validNTPGetParms statsGetNTPParms[]={
 	{ "",NULL }
 };
 
-struct aStatsNTP
-{
-    long		number;
-    DEVSUPFUN	report;
-    DEVSUPFUN	init;
-    DEVSUPFUN	init_record;
-    DEVSUPFUN	get_ioint_info;
-    DEVSUPFUN	read_write;
-    DEVSUPFUN	special_linconv;
-};
-typedef struct aStatsNTP aStatsNTP;
-
-aStatsNTP devAiNTPStats={ 
+aStatsNTP devNTPStats={ 
     6,
     NULL,
-    (DEVSUPFUN)ai_ntp_init,
-    (DEVSUPFUN)ai_ntp_init_record,
-    (DEVSUPFUN)ai_ntp_ioint_info,
-    (DEVSUPFUN)ai_ntp_read,
+    (DEVSUPFUN)ntp_init,
+    (DEVSUPFUN)ntp_init_record,
+    (DEVSUPFUN)ntp_ioint_info,
+    (DEVSUPFUN)ntp_read,
     NULL };
 
-epicsExportAddress(dset,devAiNTPStats);
+epicsExportAddress(dset,devNTPStats);
 
 // Default the daemon poll rate to 20 seconds
 volatile int ntp_daemon_poll_rate = 20;
@@ -207,7 +173,7 @@ static void poll_ntp_daemon(void)
     }
 }
 
-static long ai_ntp_init(int pass)
+static long ntp_init(int pass)
 {
 
     if (pass) return 0;
@@ -233,8 +199,11 @@ static long ai_ntp_init(int pass)
     return 0;
 }
 
-static long ai_ntp_init_record(aiRecord* pr)
+static long ntp_init_record(void* prec)
 {
+    aiRecord* pr;
+    pr = (aiRecord*)prec;
+
     int		i;
     string	parm;
     string  parameter;
@@ -293,8 +262,11 @@ static long ai_ntp_init_record(aiRecord* pr)
 }
 
 // I/O interrupt initialization
-static long ai_ntp_ioint_info(int cmd, aiRecord* pr, IOSCANPVT* iopvt)
+static long ntp_ioint_info(int cmd, void* prec, IOSCANPVT* iopvt)
 {
+    aiRecord* pr;
+    pr = (aiRecord*)prec;
+
     pvtNTPArea* pvtNTP=(pvtNTPArea*)pr->dpvt;
 
     if (!pvtNTP) return S_dev_badInpType;
@@ -305,9 +277,12 @@ static long ai_ntp_ioint_info(int cmd, aiRecord* pr, IOSCANPVT* iopvt)
 }
 
 /* Generic read - calling function from table */
-static long ai_ntp_read(aiRecord* pr)
+static long ntp_read(void* prec)
 {
     double val;
+    aiRecord* pr;
+    pr = (aiRecord*)prec;
+
     pvtNTPArea* pvtNTP=(pvtNTPArea*)pr->dpvt;
 
     if (!pvtNTP) return S_dev_badInpType;
@@ -322,10 +297,6 @@ static long ai_ntp_read(aiRecord* pr)
 
 /* -------------------------------------------------------------------- */
 
-static void statsNTPVersion(double* val, int)
-{
-    *val = (double)ntpstatus.ntpVersionNumber;
-}
 static void statsNTPLeapSecond(double* val, int)
 {
     *val = (double)ntpstatus.ntpLeapSecond;
