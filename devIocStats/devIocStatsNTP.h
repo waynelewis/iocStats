@@ -147,18 +147,20 @@ int devIocStatsGetNtpStats (ntpStatus *pval);
 #define PEER_SEL_MASK               0x07
 #define PEER_SEL_SHIFT              0
 
-#define DATA_SIZE 486
+#define DATA_SIZE 468
 #define AUTH_SIZE 96
 
 struct ntp_control {
 	unsigned char ver_mode;		/* leap, version, mode */
 	unsigned char op_code;		/* response, more, error, opcode */
 	unsigned short sequence;		/* sequence number of request */
+	unsigned char status0;			/* status word for association */
 	unsigned char status1;			/* status word for association */
-	unsigned char status2;			/* status word for association */
 	unsigned short association_id;		/* association ID */
-	unsigned short offset;			/* offset of this batch of data */
-	unsigned short count;			/* count of data in this packet */
+	unsigned char offset0;			/* offset of this batch of data */
+	unsigned char offset1;			/* offset of this batch of data */
+	unsigned char count0;			/* count of data in this packet */
+	unsigned char count1;			/* count of data in this packet */
     char data[DATA_SIZE];  /* string data returned with packet */
 	unsigned int authenticator[AUTH_SIZE];
 };

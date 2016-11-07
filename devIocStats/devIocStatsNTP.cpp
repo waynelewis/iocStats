@@ -571,6 +571,8 @@ int do_ntp_query(
     unsigned int more_bit = 1;
     unsigned int i;
     int next_offset;
+    unsigned short count;
+    unsigned short offset;
 
     string ntp_data_result;
 
@@ -637,8 +639,11 @@ int do_ntp_query(
         // Extract the status bit that tells us if we have more data waiting
         more_bit = (ntp_message->op_code & MORE_MASK) >> MORE_SHIFT;
 
-        ntp_data_fragment.offset = reverse(ntp_message->offset);
-        ntp_data_fragment.count = reverse(ntp_message->count);
+        count = 0x100 * ntp_message->count0 + ntp_message->count1;
+        offset = 0x100 * ntp_message->offset0 + ntp_message->offset1;
+
+        ntp_data_fragment.offset = reverse(offset);
+        ntp_data_fragment.count = reverse(count);
         ntp_data_fragment.data = ntp_message->data;
 
         ntp_data_fragments.push_back(ntp_data_fragment);
