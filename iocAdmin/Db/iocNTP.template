@@ -1,14 +1,5 @@
 # NTP information
 #
-# NTP version number
-record(ai, "$(IOCNAME):NTP_VERSION") {
-  field(DESC, "NTP version number")
-  field(SCAN, "I/O Intr")
-  field(DTYP, "IOC NTP stats")
-	field(PREC, "0")
-  field(INP,  "@ntp_version")
-}
-
 # NTP leap second
 record(ai, "$(IOCNAME):NTP_LEAP_SEC") {
   field(DESC, "NTP leap second status")
