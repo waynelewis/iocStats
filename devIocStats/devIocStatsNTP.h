@@ -111,6 +111,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval);
 #define NTP_TIMEOUT_ERROR           -4
 #define NTP_SELECT_ERROR            -5
 #define NTP_DAEMON_COMMS_ERROR      -6
+#define NTP_SEQ_AID_ERROR           -7
 
 // Use a NTP mode 6 control message
 #define NTP_VER_MODE                0x16
@@ -151,12 +152,14 @@ int devIocStatsGetNtpStats (ntpStatus *pval);
 #define AUTH_SIZE 96
 
 struct ntp_control {
-	unsigned char ver_mode;		/* leap, version, mode */
-	unsigned char op_code;		/* response, more, error, opcode */
-	unsigned short sequence;		/* sequence number of request */
+	unsigned char ver_mode;		    /* leap, version, mode */
+	unsigned char op_code;		    /* response, more, error, opcode */
+	unsigned char sequence0;		/* sequence number of request */
+	unsigned char sequence1;		/* sequence number of request */
 	unsigned char status0;			/* status word for association */
 	unsigned char status1;			/* status word for association */
-	unsigned short association_id;		/* association ID */
+	unsigned char association_id0;	/* association ID */
+	unsigned char association_id1;	/* association ID */
 	unsigned char offset0;			/* offset of this batch of data */
 	unsigned char offset1;			/* offset of this batch of data */
 	unsigned char count0;			/* count of data in this packet */

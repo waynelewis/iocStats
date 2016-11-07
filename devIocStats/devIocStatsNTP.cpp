@@ -567,12 +567,13 @@ int do_ntp_query(
     int ret;
     fd_set fds;
     struct timeval timeout_val;
-    FD_ZERO(&fds);
     unsigned int more_bit = 1;
     unsigned int i;
     int next_offset;
     unsigned short count;
     unsigned short offset;
+    unsigned short return_seq_id;
+    unsigned short return_association_id;
 
     string ntp_data_result;
 
@@ -582,7 +583,6 @@ int do_ntp_query(
     vector <ntpDataFragment> ntp_data_fragments;
 
     ntpDataFragment ntp_data_fragment = ntpDataFragment();
-
 
     // Set up the socket to the local NTP daemon
     inet_aton("127.0.0.1", &address);
@@ -597,6 +597,7 @@ int do_ntp_query(
     if (connect(sd, (struct sockaddr *)&ntp_socket, sizeof(ntp_socket)) < 0)
         return NTP_SOCKET_CONNECT_ERROR;
 
+    FD_ZERO(&fds);
     FD_SET(sd, &fds);
 
     // Initialise the NTP control packet
@@ -605,10 +606,18 @@ int do_ntp_query(
     // Populate the NTP control packet
     ntp_message->ver_mode = NTP_VER_MODE;
     ntp_message->op_code = op_code;
-    ntp_message->association_id = association_id;
+    ntp_message->association_id0 = association_id / 0x100;
+    ntp_message->association_id1 = association_id % 0x100;
+
+    // Use a different sequence ID each time
+    ntp_message_sequence_id++;
+
+    // Don't use zero as sequence ID
     if (ntp_message_sequence_id == 0)
         ntp_message_sequence_id++;
-    ntp_message->sequence = ntp_message_sequence_id++;
+
+    ntp_message->sequence0 = ntp_message_sequence_id / 0x100;
+    ntp_message->sequence1 = ntp_message_sequence_id % 0x100;
 
     timeout_val.tv_sec = 1;
     timeout_val.tv_usec = 0;
@@ -636,18 +645,30 @@ int do_ntp_query(
         if ((ret = recv(sd, ntp_message, sizeof(*ntp_message), 0)) < 0)
             return NTP_DAEMON_COMMS_ERROR;
 
+        // Check that the sequence ID and association IDs match
+        return_seq_id = 
+            0x100 * ntp_message->sequence0 + 
+            ntp_message->sequence1;
+        return_association_id = 
+            0x100 * ntp_message->association_id0 + 
+            ntp_message->association_id1;
+
+        if ((return_seq_id != ntp_message_sequence_id) ||
+                (return_association_id != association_id))
+            return NTP_SEQ_AID_ERROR;
+        
         // Extract the status bit that tells us if we have more data waiting
         more_bit = (ntp_message->op_code & MORE_MASK) >> MORE_SHIFT;
 
         count = 0x100 * ntp_message->count0 + ntp_message->count1;
         offset = 0x100 * ntp_message->offset0 + ntp_message->offset1;
+        return_seq_id = 0x100 * ntp_message->sequence0 + ntp_message->sequence1;
 
         ntp_data_fragment.offset = reverse(offset);
         ntp_data_fragment.count = reverse(count);
         ntp_data_fragment.data = ntp_message->data;
 
         ntp_data_fragments.push_back(ntp_data_fragment);
-
     }
 
     // Assemble the returned data into a single string
@@ -882,8 +903,8 @@ int get_association_ids(
     association_count = 0;
     for (i = 0; i < ntp_data.length(); i += 4)
     {
-        association_id = 0x100 * (unsigned char) ntp_data.at(i+1);
-        association_id += (unsigned char) ntp_data.at(i);
+        association_id = 0x100 * (unsigned char) ntp_data.at(i);
+        association_id += (unsigned char) ntp_data.at(i+1);
 
         // Get the peer selection status
         peer_sel = (ntp_data.at(i+2) & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
