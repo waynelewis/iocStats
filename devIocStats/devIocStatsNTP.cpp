@@ -75,8 +75,6 @@
 
 #include "devIocStatsNTP.h"
 
-using namespace std;
-
 static long ntp_init(int pass);
 static long ntp_init_record(void*);
 static long ntp_read(void*);
@@ -200,8 +198,8 @@ static long ntp_init_record(void* prec)
     pr = (aiRecord*)prec;
 
     int		i;
-    string	parm;
-    string  parameter;
+    std::string	parm;
+    std::string  parameter;
     size_t  index;
     int     peer;
     pvtNTPArea	*pvtNTP = NULL;
@@ -214,14 +212,14 @@ static long ntp_init_record(void* prec)
         return S_db_badField;
     }
 
-    parm = (string)pr->inp.value.instio.string;
+    parm = (std::string)pr->inp.value.instio.string;
     for(i=0; pvtNTP==NULL; i++)
     {
         // Test if there is a space in the INP string.
         // If there is, then the peer number will follow.
         index = parm.find(" ");
 
-        if (index == string::npos)
+        if (index == std::string::npos)
         {
             // System variable
             parameter = parm;
@@ -395,7 +393,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     unsigned short association_ids[NTP_MAX_PEERS];
     unsigned short peer_selections[NTP_MAX_PEERS];
     int num_associations;
-    string ntp_data;
+    std::string ntp_data;
 
     // Perform an NTP variable query to get the system level status
     if (( ret = do_ntp_query(
@@ -475,29 +473,29 @@ void parse_ntp_associations(
 
 void parse_ntp_sys_vars(
         ntpStatus *pval,
-        string ntp_data)
+        std::string ntp_data)
 {
-    //string NTP_VERSION[] = "version=";
-    //string NTP_PROCESSOR[] = "processor=";
-    //string NTP_SYSTEM[] = "system=";
-    string NTP_LEAP ("leap=");
-    string NTP_STRATUM ("stratum=");
-    string NTP_PRECISION ("precision=");
-    string NTP_ROOT_DELAY ("rootdelay=");
-    string NTP_ROOT_DISPERSION ("rootdisp=");
-    //string NTP_REF_ID ("refid=");
-    //string NTP_REF_TIME ("reftime=");
-    //string NTP_CLOCK ("clock=");
-    //string NTP_PEER ("peer=");
-    string NTP_TC ("tc=");
-    string NTP_MINTC ("mintc=");
-    string NTP_OFFSET ("offset=");
-    string NTP_FREQUENCY ("frequency=");
-    string NTP_SYS_JITTER ("sys_jitter=");
-    string NTP_CLOCK_JITTER ("clk_jitter=");
-    string NTP_CLOCK_WANDER ("clk_wander=");
+    //std::string NTP_VERSION[] = "version=";
+    //std::string NTP_PROCESSOR[] = "processor=";
+    //std::string NTP_SYSTEM[] = "system=";
+    std::string NTP_LEAP ("leap=");
+    std::string NTP_STRATUM ("stratum=");
+    std::string NTP_PRECISION ("precision=");
+    std::string NTP_ROOT_DELAY ("rootdelay=");
+    std::string NTP_ROOT_DISPERSION ("rootdisp=");
+    //std::string NTP_REF_ID ("refid=");
+    //std::string NTP_REF_TIME ("reftime=");
+    //std::string NTP_CLOCK ("clock=");
+    //std::string NTP_PEER ("peer=");
+    std::string NTP_TC ("tc=");
+    std::string NTP_MINTC ("mintc=");
+    std::string NTP_OFFSET ("offset=");
+    std::string NTP_FREQUENCY ("frequency=");
+    std::string NTP_SYS_JITTER ("sys_jitter=");
+    std::string NTP_CLOCK_JITTER ("clk_jitter=");
+    std::string NTP_CLOCK_WANDER ("clk_wander=");
     
-    string ntp_param_value;
+    std::string ntp_param_value;
 
     /* Leap second status */
     if (find_substring(ntp_data, NTP_LEAP, &ntp_param_value))
@@ -551,7 +549,7 @@ void parse_ntp_sys_vars(
 int do_ntp_query(
         unsigned char op_code,
         unsigned short association_id,
-        string *ntp_data
+        std::string *ntp_data
         )
 {
     struct sockaddr_in ntp_socket;
@@ -568,7 +566,7 @@ int do_ntp_query(
     unsigned short return_seq_id;
     unsigned short return_association_id;
 
-    string ntp_data_result;
+    std::string ntp_data_result;
 
     struct ntp_control *ntp_message;
     ntp_message = (struct ntp_control *)malloc(sizeof(struct ntp_control));
@@ -725,17 +723,17 @@ int get_peer_stats(
     int i;
     int ret;
 
-    string ntp_data;
-    string ntp_param_value;
+    std::string ntp_data;
+    std::string ntp_param_value;
 
-    string NTP_PEER_STRATUM ("stratum=");
-    string NTP_PEER_POLL ("ppoll=");
-    string NTP_PEER_REACH ("reach=");
-    string NTP_ROOT_DELAY ("rootdelay=");
-    string NTP_PEER_DELAY ("delay=");
-    string NTP_PEER_OFFSET ("offset=");
-    string NTP_PEER_JITTER ("jitter=");
-    string SEPARATOR (",");
+    std::string NTP_PEER_STRATUM ("stratum=");
+    std::string NTP_PEER_POLL ("ppoll=");
+    std::string NTP_PEER_REACH ("reach=");
+    std::string NTP_ROOT_DELAY ("rootdelay=");
+    std::string NTP_PEER_DELAY ("delay=");
+    std::string NTP_PEER_OFFSET ("offset=");
+    std::string NTP_PEER_JITTER ("jitter=");
+    std::string SEPARATOR (",");
 
     int stratums[NTP_MAX_PEERS];
     int polls[NTP_MAX_PEERS];
@@ -820,7 +818,10 @@ int get_peer_stats(
     return NTP_NO_ERROR;
 }
 
-bool find_substring(const string data, const string pattern, string *value)
+bool find_substring(
+        const std::string data, 
+        const std::string pattern, 
+        std::string *value)
 {
     // Call to this version of the function will give the first instance of the
     // search string.
@@ -829,10 +830,10 @@ bool find_substring(const string data, const string pattern, string *value)
 }
 
 bool find_substring(
-        const string data, 
-        const string pattern, 
+        const std::string data, 
+        const std::string pattern, 
         int occurrence,
-        string *value)
+        std::string *value)
 {
     // General version of the substring function, with an option to find a
     // specific occurrence of the search patttern.
@@ -846,19 +847,19 @@ bool find_substring(
     int num_found = 0;
     start = 0;
 
-    const string SEPARATOR (",");
+    const std::string SEPARATOR (",");
 
     // Search for the required occurrence number
     while (num_found < occurrence)
     {
         found = data.find(pattern, start);
         num_found++;
-        if (found != string::npos)
+        if (found != std::string::npos)
             start = found + pattern.length();
     }
 
     // Extract the remaining string up until the next separator
-    if (found != string::npos)
+    if (found != std::string::npos)
     {
         separator = data.find(SEPARATOR, found);
         length = separator - start;
@@ -880,7 +881,7 @@ int get_association_ids(
     int association_count;
     unsigned short association_id;
     int peer_sel;
-    string ntp_data;
+    std::string ntp_data;
 
     // Finds the integer values used to identify the NTP peer servers
     //
