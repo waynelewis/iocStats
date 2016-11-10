@@ -23,13 +23,13 @@ devIocStats_SYS_LIBS_solaris = kstat
 devIocStats_SYS_LIBS_WIN32 += psapi
 
 # OSI parts
-SRCS += devIocStatsAnalog.c
-SRCS += devIocStatsString.c
-SRCS += devIocStatsWaveform.c
-SRCS += devIocStatsSub.c
-SRCS += devIocStatsTest.c
+devIocStats_SRCS += devIocStatsAnalog.c
+devIocStats_SRCS += devIocStatsString.c
+devIocStats_SRCS += devIocStatsWaveform.c
+devIocStats_SRCS += devIocStatsSub.c
+devIocStats_SRCS += devIocStatsTest.c
 ifeq ($(USE_NTP), YES)
-  SRCS += devIocStatsNTP.cpp
+  devIocStats_SRCS += devIocStatsNTP.cpp
 endif
 
 # OSD parts
@@ -37,18 +37,18 @@ endif
 ifeq (mingw,$(findstring mingw, $(T_A)))
   POSIX=NO
 endif
-SRCS += osdCpuUsage.c
-SRCS += osdCpuUtilization.c
-SRCS += osdFdUsage.c
-SRCS += osdMemUsage.c
-SRCS += osdWorkspaceUsage.c
-SRCS += osdClustInfo.c
-SRCS += osdSuspTasks.c
-SRCS += osdIFErrors.c
-SRCS += osdBootInfo.c
-SRCS += osdSystemInfo.c
-SRCS += osdHostInfo.c
-SRCS += osdPIDInfo.c
+devIocStats_SRCS += osdCpuUsage.c
+devIocStats_SRCS += osdCpuUtilization.c
+devIocStats_SRCS += osdFdUsage.c
+devIocStats_SRCS += osdMemUsage.c
+devIocStats_SRCS += osdWorkspaceUsage.c
+devIocStats_SRCS += osdClustInfo.c
+devIocStats_SRCS += osdSuspTasks.c
+devIocStats_SRCS += osdIFErrors.c
+devIocStats_SRCS += osdBootInfo.c
+devIocStats_SRCS += osdSystemInfo.c
+devIocStats_SRCS += osdHostInfo.c
+devIocStats_SRCS += osdPIDInfo.c
 
 OBJS_vxWorks += osdCpuUsageTest.o
 
