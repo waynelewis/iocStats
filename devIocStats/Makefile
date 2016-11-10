@@ -53,9 +53,12 @@ devIocStats_SRCS += osdPIDInfo.c
 OBJS_vxWorks += osdCpuUsageTest.o
 
 TESTPROD_HOST += testntphelper
+TESTS += testntphelper
 testntphelper_SRCS += testntphelper.cpp
 testntphelper_SRCS += ntphelper.cpp
 testntphelper_LIBS += Com
+
+TESTSCRIPTS_HOST += $(TESTS:%=%.t)
 
 #===========================
 

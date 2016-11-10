@@ -32,6 +32,8 @@ void split(const std::string& inp, lines_t& out)
     }
 }
 
+// remove leading and trailing whitespace
+// throw runtime_error if the result is
 std::string strip(const std::string& s)
 {
     size_t start = s.find_first_not_of(" \t\n\r"),
