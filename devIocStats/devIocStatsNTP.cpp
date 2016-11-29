@@ -764,35 +764,46 @@ int get_peer_stats(
 
         ntp_peer_data = ntp_parse_peer_data(ntp_data);
         try {
-
             ntp_peer_data_t::iterator it;
 
             it = ntp_peer_data.find(NTP_PEER_STRATUM);
             if (it != ntp_peer_data.end())
                 stratums[i] = (int)strtoul(it->second.c_str(), NULL, 10);
+            else
+                return NTP_PARSE_PEER_ERROR;
 
             it = ntp_peer_data.find(NTP_PEER_POLL);
             if (it != ntp_peer_data.end())
                 polls[i] = (int)strtoul(it->second.c_str(), NULL, 10);
+            else
+                return NTP_PARSE_PEER_ERROR;
 
             it = ntp_peer_data.find(NTP_PEER_REACH);
             if (it != ntp_peer_data.end())
                 reaches[i] = (int)strtoul(it->second.c_str(), NULL, 16);
+            else
+                return NTP_PARSE_PEER_ERROR;
 
             it = ntp_peer_data.find(NTP_PEER_DELAY);
             if (it != ntp_peer_data.end())
                 delays[i] = strtof(it->second.c_str(), NULL);
+            else
+                return NTP_PARSE_PEER_ERROR;
 
             it = ntp_peer_data.find(NTP_PEER_OFFSET);
             if (it != ntp_peer_data.end())
                 offsets[i] = strtof(it->second.c_str(), NULL);
+            else
+                return NTP_PARSE_PEER_ERROR;
 
             it = ntp_peer_data.find(NTP_PEER_JITTER);
             if (it != ntp_peer_data.end())
                 jitters[i] = strtof(it->second.c_str(), NULL);
+            else
+                return NTP_PARSE_PEER_ERROR;
         }
         catch(std::exception& e) {
-            errlogPrintf("Error finding peer parameter values\n");
+            errlogPrintf("Error finding peer parameter values. %s\n", e.what());
             return NTP_PARSE_PEER_ERROR;
         }
     }
