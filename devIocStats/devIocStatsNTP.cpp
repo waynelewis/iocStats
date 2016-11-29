@@ -58,6 +58,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <rsrv.h>
+#include <errlog.h>
 
 #include <epicsThread.h>
 #include <dbAccess.h>
@@ -74,6 +75,7 @@
 #include <iocsh.h>
 
 #include "devIocStatsNTP.h"
+#include "ntphelper.h"
 
 static long ntp_init(int pass);
 static long ntp_init_record(void*);
@@ -726,13 +728,13 @@ int get_peer_stats(
     std::string ntp_data;
     std::string ntp_param_value;
 
-    std::string NTP_PEER_STRATUM ("stratum=");
-    std::string NTP_PEER_POLL ("ppoll=");
-    std::string NTP_PEER_REACH ("reach=");
-    std::string NTP_ROOT_DELAY ("rootdelay=");
-    std::string NTP_PEER_DELAY ("delay=");
-    std::string NTP_PEER_OFFSET ("offset=");
-    std::string NTP_PEER_JITTER ("jitter=");
+    std::string NTP_PEER_STRATUM ("stratum");
+    std::string NTP_PEER_POLL ("ppoll");
+    std::string NTP_PEER_REACH ("reach");
+    std::string NTP_ROOT_DELAY ("rootdelay");
+    std::string NTP_PEER_DELAY ("delay");
+    std::string NTP_PEER_OFFSET ("offset");
+    std::string NTP_PEER_JITTER ("jitter");
     std::string SEPARATOR (",");
 
     int stratums[NTP_MAX_PEERS];
@@ -747,6 +749,8 @@ int get_peer_stats(
     double max_offset;
     double min_stratum;
 
+    ntp_peer_data_t ntp_peer_data;
+
     // Iterate through the associated peers and gather the required data
     for (i = 0; i < num_peers; i++)
     {
@@ -757,24 +761,42 @@ int get_peer_stats(
         if (ret < 0)
             return ret;
 
-        if (find_substring(ntp_data, NTP_PEER_STRATUM, &ntp_param_value))
-            stratums[i] = (int)strtoul(ntp_param_value.c_str(), NULL, 10);
 
-        if (find_substring(ntp_data, NTP_PEER_POLL, &ntp_param_value))
-            polls[i] = (int)strtoul(ntp_param_value.c_str(), NULL, 10);
+        ntp_peer_data = ntp_parse_peer_data(ntp_data);
+        try {
 
-        if (find_substring(ntp_data, NTP_PEER_REACH, &ntp_param_value))
-            reaches[i] = (int)strtoul(ntp_param_value.c_str(), NULL, 16);
+            ntp_peer_data_t::iterator it;
 
-        if (find_substring(ntp_data, NTP_PEER_DELAY, 2, &ntp_param_value))
-            delays[i] = strtof(ntp_param_value.c_str(), NULL);
+            it = ntp_peer_data.find(NTP_PEER_STRATUM);
+            if (it != ntp_peer_data.end())
+                stratums[i] = (int)strtoul(it->second.c_str(), NULL, 10);
 
-        if (find_substring(ntp_data, NTP_PEER_OFFSET, &ntp_param_value))
-            offsets[i] = strtof(ntp_param_value.c_str(), NULL);
+            it = ntp_peer_data.find(NTP_PEER_POLL);
+            if (it != ntp_peer_data.end())
+                polls[i] = (int)strtoul(it->second.c_str(), NULL, 10);
 
-        if (find_substring(ntp_data, NTP_PEER_JITTER, &ntp_param_value))
-            jitters[i] = strtof(ntp_param_value.c_str(), NULL);
+            it = ntp_peer_data.find(NTP_PEER_REACH);
+            if (it != ntp_peer_data.end())
+                reaches[i] = (int)strtoul(it->second.c_str(), NULL, 16);
+
+            it = ntp_peer_data.find(NTP_PEER_DELAY);
+            if (it != ntp_peer_data.end())
+                delays[i] = strtof(it->second.c_str(), NULL);
+
+            it = ntp_peer_data.find(NTP_PEER_OFFSET);
+            if (it != ntp_peer_data.end())
+                offsets[i] = strtof(it->second.c_str(), NULL);
+
+            it = ntp_peer_data.find(NTP_PEER_JITTER);
+            if (it != ntp_peer_data.end())
+                jitters[i] = strtof(it->second.c_str(), NULL);
+        }
+        catch(std::exception& e) {
+            errlogPrintf("Error finding peer parameter values\n");
+            return NTP_PARSE_PEER_ERROR;
+        }
     }
+
 
     // Iterate through the gathered data and extract the required values
 

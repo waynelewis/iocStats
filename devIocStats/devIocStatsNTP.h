@@ -112,6 +112,7 @@ int devIocStatsGetNtpStats (ntpStatus *pval);
 #define NTP_SELECT_ERROR            -5
 #define NTP_DAEMON_COMMS_ERROR      -6
 #define NTP_SEQ_AID_ERROR           -7
+#define NTP_PARSE_PEER_ERROR        -8
 
 // Use a NTP mode 6 control message
 #define NTP_VER_MODE                0x16
