@@ -67,6 +67,7 @@
 #include <devSup.h>
 #include <menuConvert.h>
 #include <aiRecord.h>
+#include <alarm.h>
 #include <recGbl.h>
 #include <epicsExport.h>
 
@@ -163,7 +164,11 @@ static void poll_ntp_daemon(void)
         if (ntp_daemon_disable == TRUE)
             epicsThreadSuspendSelf();
 
-        devIocStatsGetNtpStats(&ntpstatus);
+        int ret = devIocStatsGetNtpStats(&ntpstatus);
+        if (ret < 0)
+            ntpstatus.ntpDaemonStatus = NTP_DAEMON_ERROR;
+        else
+            ntpstatus.ntpDaemonStatus = NTP_DAEMON_OK;
 
         scanIoRequest(ioscanpvt);
         epicsThreadSleep(ntp_daemon_poll_rate);
@@ -283,7 +288,12 @@ static long ntp_read(void* prec)
     if (!pvtNTP) return S_dev_badInpType;
 
     statsGetNTPParms[pvtNTP->index].func(&val,pvtNTP->peer);
+
     pr->val = val;
+
+    if (ntpstatus.ntpDaemonStatus != NTP_DAEMON_OK)
+        (void)recGblSetSevr(pr, READ_ALARM, INVALID_ALARM);
+
     pr->udf = 0;
     return 2; /* don't convert */
 }
@@ -398,10 +408,9 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
     std::string ntp_data;
 
     // Perform an NTP variable query to get the system level status
-    if (( ret = do_ntp_query(
-                    NTP_OP_READ_VAR, 
-                    NTP_SYS_ASSOCIATION_ID, 
-                    &ntp_data) != 0))
+
+    ret = do_ntp_query( NTP_OP_READ_VAR, NTP_SYS_ASSOCIATION_ID, &ntp_data);
+    if ( ret != 0)
         return ret;
 
     if ((ret = parse_ntp_sys_vars(pval, ntp_data)) != 0)
@@ -662,8 +671,8 @@ int do_ntp_query(
     ntp_message->sequence0 = ntp_message_sequence_id / 0x100;
     ntp_message->sequence1 = ntp_message_sequence_id % 0x100;
 
-    timeout_val.tv_sec = 1;
-    timeout_val.tv_usec = 0;
+    timeout_val.tv_sec = 0;
+    timeout_val.tv_usec = 500000;
 
     // Send the request to the NTP daemon
     if (send(sd, ntp_message, sizeof(*ntp_message), 0) < 0)
@@ -687,7 +696,11 @@ int do_ntp_query(
             return NTP_SELECT_ERROR;
 
         // Read the response
-        if ((ret = recv(sd, ntp_message, sizeof(*ntp_message), 0)) < 0)
+
+
+        ret = recv(sd, ntp_message, sizeof(*ntp_message), 0);
+
+        if (ret  < 0)
             return NTP_DAEMON_COMMS_ERROR;
 
         // Check that the sequence ID and association IDs match

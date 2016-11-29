@@ -64,6 +64,7 @@ typedef struct _ntpPeerData {
 } ntpPeerData;
 
 typedef struct _ntpStatus {
+        bool ntpDaemonStatus;
         int ntpLeapSecond;
         int ntpStratum;
         int ntpPrecision;
@@ -133,6 +134,9 @@ int devIocStatsGetNtpStats (ntpStatus *pval);
 
 #define NTP_SYNC_STATUS_UNSYNC      0
 #define NTP_SYNC_STATUS_NTP         1
+
+#define NTP_DAEMON_OK               0
+#define NTP_DAEMON_ERROR            -1
 
 #define VER_MASK                    0x38
 #define VER_SHIFT                   2
