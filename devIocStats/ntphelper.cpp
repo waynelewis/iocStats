@@ -39,7 +39,7 @@ std::string strip(const std::string& s)
     size_t start = s.find_first_not_of(" \t\n\r"),
            end   = s.find_last_not_of(" \t\n\r");
 
-    if(start==s.npos || start>=end)
+    if(start==s.npos || start>end)
         throw std::runtime_error("stripped string to zero length");
     return s.substr(start, end-start+1);
 }
