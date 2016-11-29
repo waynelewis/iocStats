@@ -12,7 +12,7 @@
 # for a subset of the cross-compiled target architectures
 # that Base is built for.
 CROSS_COMPILER_TARGET_ARCHS = $(EPICS_HOST_ARCH)-debug
-#CROSS_COMPILER_TARGET_ARCHS = linux-ppc
+CROSS_COMPILER_TARGET_ARCHS = linux-ppc
 #CROSS_COMPILER_TARGET_ARCHS = RTEMS-uC5282
 #CROSS_COMPILER_TARGET_ARCHS = RTEMS-pc586
 
