@@ -30,6 +30,7 @@ devIocStats_SRCS += devIocStatsSub.c
 devIocStats_SRCS += devIocStatsTest.c
 ifeq ($(USE_NTP), YES)
   devIocStats_SRCS += devIocStatsNTP.cpp
+  devIocStats_SRCS += ntphelper.cpp
 endif
 
 # OSD parts
