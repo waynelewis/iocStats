@@ -713,9 +713,6 @@ int do_ntp_query(
         ntp_data_fragment.count = count;
         ntp_data_fragment.data = ntp_message->data;
 
-        std::cout << "offset = " << ntp_data_fragment.offset << std::endl;
-        std::cout << "count = " << ntp_data_fragment.count << std::endl;
-
         ntp_assembler.add(
                 ntp_data_fragment.offset, 
                 ntp_data_fragment.count, 
@@ -808,7 +805,6 @@ int get_peer_stats(
         if (ret < 0)
             return ret;
 
-        std::cout << ntp_data << std::endl;
         ntp_peer_data = ntp_parse_peer_data(ntp_data);
         try {
             ntp_peer_data_t::const_iterator it;
