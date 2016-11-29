@@ -209,7 +209,7 @@ void parse_ntp_associations(
         int num_associations,
         ntpStatus *pval);
 
-void parse_ntp_sys_vars(
+int parse_ntp_sys_vars(
         ntpStatus *pval, 
         string ntp_data);
 

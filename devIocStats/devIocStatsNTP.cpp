@@ -207,8 +207,8 @@ static long ntp_init_record(void* prec)
     pvtNTPArea	*pvtNTP = NULL;
 
     // Check the record INP type
-    if(pr->inp.type!=INST_IO)
-    {
+    if(pr->inp.type!=INST_IO) {
+    
         recGblRecordError(S_db_badField,(void*)pr,
                 "devAiNTPStats (init_record) Illegal INP field");
         return S_db_badField;
@@ -404,7 +404,8 @@ int devIocStatsGetNtpStats (ntpStatus *pval)
                     &ntp_data) != 0))
         return ret;
 
-    parse_ntp_sys_vars(pval, ntp_data);
+    if ((ret = parse_ntp_sys_vars(pval, ntp_data)) != 0)
+        return ret;
 
     // Perform an NTP status query to get the association IDs
     if ((ret = get_association_ids(
@@ -473,79 +474,129 @@ void parse_ntp_associations(
 
 }
 
-void parse_ntp_sys_vars(
+int parse_ntp_sys_vars(
         ntpStatus *pval,
         std::string ntp_data)
 {
-    //std::string NTP_VERSION[] = "version=";
-    //std::string NTP_PROCESSOR[] = "processor=";
-    //std::string NTP_SYSTEM[] = "system=";
-    std::string NTP_LEAP ("leap=");
-    std::string NTP_STRATUM ("stratum=");
-    std::string NTP_PRECISION ("precision=");
-    std::string NTP_ROOT_DELAY ("rootdelay=");
-    std::string NTP_ROOT_DISPERSION ("rootdisp=");
-    //std::string NTP_REF_ID ("refid=");
-    //std::string NTP_REF_TIME ("reftime=");
-    //std::string NTP_CLOCK ("clock=");
-    //std::string NTP_PEER ("peer=");
-    std::string NTP_TC ("tc=");
-    std::string NTP_MINTC ("mintc=");
-    std::string NTP_OFFSET ("offset=");
-    std::string NTP_FREQUENCY ("frequency=");
-    std::string NTP_SYS_JITTER ("sys_jitter=");
-    std::string NTP_CLOCK_JITTER ("clk_jitter=");
-    std::string NTP_CLOCK_WANDER ("clk_wander=");
+    //std::string NTP_VERSION ("version");
+    //std::string NTP_PROCESSOR ("processor");
+    //std::string NTP_SYSTEM ("system");
+    std::string NTP_LEAP ("leap");
+    std::string NTP_STRATUM ("stratum");
+    std::string NTP_PRECISION ("precision");
+    std::string NTP_ROOT_DELAY ("rootdelay");
+    std::string NTP_ROOT_DISPERSION ("rootdisp");
+    //std::string NTP_REF_ID ("refid");
+    //std::string NTP_REF_TIME ("reftime");
+    //std::string NTP_CLOCK ("clock");
+    //std::string NTP_PEER ("peer");
+    std::string NTP_TC ("tc");
+    std::string NTP_MINTC ("mintc");
+    std::string NTP_OFFSET ("offset");
+    std::string NTP_FREQUENCY ("frequency");
+    std::string NTP_SYS_JITTER ("sys_jitter");
+    std::string NTP_CLOCK_JITTER ("clk_jitter");
+    std::string NTP_CLOCK_WANDER ("clk_wander");
     
     std::string ntp_param_value;
 
-    /* Leap second status */
-    if (find_substring(ntp_data, NTP_LEAP, &ntp_param_value))
-        pval->ntpLeapSecond = (int)(strtoul(ntp_param_value.c_str(), NULL, 10));
+    ntp_peer_data_t ntp_peer_data;
+    ntp_peer_data_t::const_iterator it;
+    ntp_peer_data = ntp_parse_peer_data(ntp_data);
 
-    /* Stratum */
-    if (find_substring(ntp_data, NTP_STRATUM, &ntp_param_value))
-        pval->ntpStratum = (double)(strtof(ntp_param_value.c_str(), NULL));
+    try {
 
-    /* Precision */
-    if (find_substring(ntp_data, NTP_PRECISION, &ntp_param_value))
-        pval->ntpPrecision = (int)(strtol(ntp_param_value.c_str(), NULL, 10));
+        /* Leap second status */
+        it = ntp_peer_data.find(NTP_LEAP);
+        if (it != ntp_peer_data.end())
+            pval->ntpLeapSecond = (int)(strtoul(it->second.c_str(), NULL, 10));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* Root delay */
-    if (find_substring(ntp_data, NTP_ROOT_DELAY, &ntp_param_value))
-        pval->ntpRootDelay = (double)(strtof(ntp_param_value.c_str(), NULL));
 
-    /* Root dispersion */
-    if (find_substring(ntp_data, NTP_ROOT_DISPERSION, &ntp_param_value))
-        pval->ntpRootDispersion = (double)(strtof(ntp_param_value.c_str(), NULL));
+        /* Stratum */
+        it = ntp_peer_data.find(NTP_STRATUM);
+        if (it != ntp_peer_data.end())
+            pval->ntpStratum = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* Time constant */
-    if (find_substring(ntp_data, NTP_TC, &ntp_param_value))
-        pval->ntpTC = (int)(strtoul(ntp_param_value.c_str(), NULL, 10));
+        /* Precision */
+        it = ntp_peer_data.find(NTP_PRECISION);
+        if (it != ntp_peer_data.end())
+            pval->ntpPrecision = (int)(strtol(it->second.c_str(), NULL, 10));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* Minimum time constant */
-    if (find_substring(ntp_data, NTP_MINTC, &ntp_param_value))
-        pval->ntpMinTC = (int)(strtoul(ntp_param_value.c_str(), NULL, 10));
+        /* Root delay */
+        it = ntp_peer_data.find(NTP_ROOT_DELAY);
+        if (it != ntp_peer_data.end())
+            pval->ntpRootDelay = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* Offset */
-    if (find_substring(ntp_data, NTP_OFFSET, &ntp_param_value))
-        pval->ntpOffset = (double)(strtof(ntp_param_value.c_str(), NULL));
+        /* Root dispersion */
+        it = ntp_peer_data.find(NTP_ROOT_DISPERSION);
+        if (it != ntp_peer_data.end())
+            pval->ntpRootDispersion = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* Frequency */
-    if (find_substring(ntp_data, NTP_FREQUENCY, &ntp_param_value))
-        pval->ntpFrequency = (double)(strtof(ntp_param_value.c_str(), NULL));
+        /* Time constant */
+        it = ntp_peer_data.find(NTP_TC);
+        if (it != ntp_peer_data.end())
+            pval->ntpTC = (int)(strtoul(it->second.c_str(), NULL, 10));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* System jitter */
-    if (find_substring(ntp_data, NTP_SYS_JITTER, &ntp_param_value))
-        pval->ntpSystemJitter = (double)(strtof(ntp_param_value.c_str(), NULL));
+        /* Minimum time constant */
+        it = ntp_peer_data.find(NTP_MINTC);
+        if (it != ntp_peer_data.end())
+            pval->ntpMinTC = (int)(strtoul(it->second.c_str(), NULL, 10));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* Clock jitter */
-    if (find_substring(ntp_data, NTP_CLOCK_JITTER, &ntp_param_value))
-        pval->ntpClockJitter = (double)(strtof(ntp_param_value.c_str(), NULL));
+        /* Offset */
+        it = ntp_peer_data.find(NTP_OFFSET);
+        if (it != ntp_peer_data.end())
+            pval->ntpOffset = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
 
-    /* Clock wander */
-    if (find_substring(ntp_data, NTP_CLOCK_WANDER, &ntp_param_value))
-        pval->ntpClockWander = (double)(strtof(ntp_param_value.c_str(), NULL));
+        /* Frequency */
+        it = ntp_peer_data.find(NTP_FREQUENCY);
+        if (it != ntp_peer_data.end())
+            pval->ntpFrequency = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
+
+        /* System jitter */
+        it = ntp_peer_data.find(NTP_SYS_JITTER);
+        if (it != ntp_peer_data.end())
+            pval->ntpSystemJitter = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
+
+        /* Clock jitter */
+        it = ntp_peer_data.find(NTP_CLOCK_JITTER);
+        if (it != ntp_peer_data.end())
+            pval->ntpClockJitter = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
+
+        /* Clock wander */
+        it = ntp_peer_data.find(NTP_CLOCK_WANDER);
+        if (it != ntp_peer_data.end())
+            pval->ntpClockWander = (double)(strtof(it->second.c_str(), NULL));
+        else
+            return NTP_PARSE_PEER_ERROR;
+    }
+    catch (std::exception& e) {
+        errlogPrintf("Error finding peer parameter values. %s\n", e.what());
+        return NTP_PARSE_PEER_ERROR;
+    }
+
+    return NTP_NO_ERROR;
 }
 
 int do_ntp_query(
@@ -650,7 +701,7 @@ int do_ntp_query(
         if ((return_seq_id != ntp_message_sequence_id) ||
                 (return_association_id != association_id))
             return NTP_SEQ_AID_ERROR;
-        
+
         // Extract the status bit that tells us if we have more data waiting
         bool more_bit = (ntp_message->op_code & MORE_MASK) >> MORE_SHIFT;
 
@@ -658,9 +709,12 @@ int do_ntp_query(
         offset = 0x100 * ntp_message->offset0 + ntp_message->offset1;
         return_seq_id = 0x100 * ntp_message->sequence0 + ntp_message->sequence1;
 
-        ntp_data_fragment.offset = reverse(offset);
-        ntp_data_fragment.count = reverse(count);
+        ntp_data_fragment.offset = offset;
+        ntp_data_fragment.count = count;
         ntp_data_fragment.data = ntp_message->data;
+
+        std::cout << "offset = " << ntp_data_fragment.offset << std::endl;
+        std::cout << "count = " << ntp_data_fragment.count << std::endl;
 
         ntp_assembler.add(
                 ntp_data_fragment.offset, 
@@ -673,18 +727,18 @@ int do_ntp_query(
 
     // Assemble the returned data into a single string
     /*
-    next_offset = 0;
-    for (i = 0; i < ntp_data_fragments.size(); i++)
-        for (vector<ntpDataFragment>::iterator it = ntp_data_fragments.begin(); 
-                it != ntp_data_fragments.end(); 
-                ++it)
-            if (it->offset == next_offset)
-            {
-                ntp_data_result += it->data;
-                next_offset = it->count;
-                break;
-            }
-            */
+       next_offset = 0;
+       for (i = 0; i < ntp_data_fragments.size(); i++)
+       for (vector<ntpDataFragment>::iterator it = ntp_data_fragments.begin(); 
+       it != ntp_data_fragments.end(); 
+       ++it)
+       if (it->offset == next_offset)
+       {
+       ntp_data_result += it->data;
+       next_offset = it->count;
+       break;
+       }
+       */
 
     *ntp_data = ntp_assembler.tostring();
 
@@ -695,22 +749,6 @@ int do_ntp_query(
 
     return 0;
 
-}
-
-unsigned short reverse(unsigned short v)
-{
-    unsigned short val = v;         // reverse the bits in this
-    unsigned short t = 0;     // t will have the reversed bits of v
-    unsigned int i;
-
-    for (i = 0; i < sizeof(v) * 8; i++)
-    {
-        t <<= 1;
-        t |= (val & 1);
-        val >>= 1;
-    }
-
-    return t;
 }
 
 // Get the following statistics from the peers:
@@ -770,10 +808,10 @@ int get_peer_stats(
         if (ret < 0)
             return ret;
 
-
+        std::cout << ntp_data << std::endl;
         ntp_peer_data = ntp_parse_peer_data(ntp_data);
         try {
-            ntp_peer_data_t::iterator it;
+            ntp_peer_data_t::const_iterator it;
 
             it = ntp_peer_data.find(NTP_PEER_STRATUM);
             if (it != ntp_peer_data.end())
