@@ -560,9 +560,8 @@ int do_ntp_query(
     int ret;
     fd_set fds;
     struct timeval timeout_val;
-    unsigned int more_bit = 1;
-    unsigned int i;
-    int next_offset;
+    //unsigned int i;
+    //int next_offset;
     unsigned short count;
     unsigned short offset;
     unsigned short return_seq_id;
@@ -619,7 +618,9 @@ int do_ntp_query(
     if (send(sd, ntp_message, sizeof(*ntp_message), 0) < 0)
         return NTP_COMMAND_SEND_ERROR;
 
-    while (more_bit == 1)
+    NTPAssembler ntp_assembler;
+
+    while (!ntp_assembler.done())
     {
         // Clear the message structure contents prior to receiving the new
         // message
@@ -651,7 +652,7 @@ int do_ntp_query(
             return NTP_SEQ_AID_ERROR;
         
         // Extract the status bit that tells us if we have more data waiting
-        more_bit = (ntp_message->op_code & MORE_MASK) >> MORE_SHIFT;
+        bool more_bit = (ntp_message->op_code & MORE_MASK) >> MORE_SHIFT;
 
         count = 0x100 * ntp_message->count0 + ntp_message->count1;
         offset = 0x100 * ntp_message->offset0 + ntp_message->offset1;
@@ -661,10 +662,17 @@ int do_ntp_query(
         ntp_data_fragment.count = reverse(count);
         ntp_data_fragment.data = ntp_message->data;
 
-        ntp_data_fragments.push_back(ntp_data_fragment);
+        ntp_assembler.add(
+                ntp_data_fragment.offset, 
+                ntp_data_fragment.count, 
+                more_bit, 
+                ntp_data_fragment.data.c_str());
+
+        //ntp_data_fragments.push_back(ntp_data_fragment);
     }
 
     // Assemble the returned data into a single string
+    /*
     next_offset = 0;
     for (i = 0; i < ntp_data_fragments.size(); i++)
         for (vector<ntpDataFragment>::iterator it = ntp_data_fragments.begin(); 
@@ -676,8 +684,9 @@ int do_ntp_query(
                 next_offset = it->count;
                 break;
             }
+            */
 
-    *ntp_data = ntp_data_result;
+    *ntp_data = ntp_assembler.tostring();
 
     free(ntp_message);
 
