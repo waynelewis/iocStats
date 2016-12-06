@@ -6,7 +6,12 @@
 * in file LICENSE that is included with this distribution.
 \*************************************************************************/
 
-/* devIocStatsNTP.c - device support routines for NTP statistics - based on */
+/* devIocStatsNTP.c - device support routines for NTP statistics
+ *
+ * Query an NTP server for status information.
+ * Uses NTP protocol mode 6
+ * See RFC1305 Appendix B  "NTP Control Messages"
+ */
 /*
  *	Author: Wayne Lewis
  *	Date:  2016-11-06
@@ -47,41 +52,52 @@
 
 
 #include <string>
+#include <memory>
 #include <vector>
 #include <iostream>
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
+#include <limits>
+#include <stdexcept>
 
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <rsrv.h>
 #include <errlog.h>
 
+#include <epicsMath.h>
+#include <epicsExit.h>
 #include <epicsThread.h>
+#include <epicsEvent.h>
 #include <dbAccess.h>
 #include <dbStaticLib.h>
 #include <dbScan.h>
 #include <devSup.h>
+#include <drvSup.h>
 #include <menuConvert.h>
 #include <aiRecord.h>
+#include <stringinRecord.h>
 #include <alarm.h>
 #include <recGbl.h>
+#include <osiSock.h>
+#include <initHooks.h>
 #include <epicsExport.h>
 
 #define epicsExportSharedSymbols
 #include <shareLib.h>
 #include <iocsh.h>
 
+#include "devIocStats.h"
 #include "devIocStatsNTP.h"
 #include "ntphelper.h"
 
 static long ntp_init(int pass);
-static long ntp_init_record(void*);
-static long ntp_read(void*);
-static long ntp_ioint_info(int cmd,void* pr,IOSCANPVT* iopvt);
+static long ntp_init_record(dbCommon*);
+static long ntp_read_ai(aiRecord*);
+static long ntp_read_si(stringinRecord*);
+static long ntp_ioint_info(int cmd, dbCommon *pr, IOSCANPVT* iopvt);
 
 static void statsNTPLeapSecond(double *, int peer=-1);
 static void statsNTPStratum(double *, int peer=-1);
@@ -142,68 +158,200 @@ aStatsNTP devNTPStats={
     (DEVSUPFUN)ntp_init,
     (DEVSUPFUN)ntp_init_record,
     (DEVSUPFUN)ntp_ioint_info,
-    (DEVSUPFUN)ntp_read,
+    (DEVSUPFUN)ntp_read_ai,
     NULL };
-
 epicsExportAddress(dset,devNTPStats);
+
+aStatsNTP devNTPStatsName={
+    6,
+    NULL,
+    NULL,
+    (DEVSUPFUN)ntp_init_record,
+    (DEVSUPFUN)ntp_ioint_info,
+    (DEVSUPFUN)ntp_read_si,
+    NULL };
+epicsExportAddress(dset,devNTPStatsName);
+
 
 // Default the daemon poll rate to 20 seconds
 volatile int ntp_daemon_poll_rate = 20;
-volatile bool ntp_daemon_disable = FALSE;
+epicsExportAddress(int, ntp_daemon_poll_rate);
 
-static IOSCANPVT ioscanpvt;
-static ntpStatus ntpstatus;
-static epicsThreadId ntp_poll_thread_id;
+typedef epicsGuard<epicsMutex> Guard;
+typedef epicsGuardRelease<epicsMutex> UnGuard;
+
+static volatile int ntp_verb = 1;
+epicsExportAddress(int, ntp_verb);
+
+static
+struct ntp_poller_t : public epicsThreadRunable
+{
+    epicsMutex lock;
+    bool running;
+    IOSCANPVT scan;
+
+    std::auto_ptr<ntpStatus> data;
+
+    epicsEvent event;
+    epicsThread thread;
+
+    ntp_poller_t()
+        :running(false)
+        ,data(new ntpStatus)
+        ,thread(*this,
+                "ntpdMonitor",
+                epicsThreadGetStackSize(epicsThreadStackSmall),
+                epicsThreadPriorityMedium-1)
+    {
+        scanIoInit(&scan);
+    }
+
+    virtual void run()
+    {
+        if(ntp_verb>1)
+            errlogPrintf("NTPd monitor thread starts\n");
+        std::auto_ptr<ntpStatus> next(new ntpStatus);
+
+        Guard G(lock);
+
+        while(running) {
+            if(ntp_verb>2)
+                errlogPrintf("NTPd monitor thread runs\n");
+            try {
+                UnGuard U(G);
+
+                next->ntpDaemonOk = devIocStatsGetNtpStats(next.get());
+            }catch(std::exception& e){
+                next->ntpDaemonOk = false;
+                errlogPrintf("Uncaught exception in NTP daemon thread: %s\n", e.what());
+            }
+            if(ntp_verb>1)
+                errlogPrintf("NTPd monitor thread complete %s\n",
+                             next->ntpDaemonOk ? "OK" : "Error");
+            next->updateTime = epicsTime::getCurrent();
+
+            std::swap(data, next);
+
+            scanIoRequest(scan);
+            {
+                UnGuard U(G);
+                event.wait(ntp_daemon_poll_rate);
+            }
+        }
+
+        if(ntp_verb>1)
+            errlogPrintf("NTPd monitor thread stops\n");
+    }
+} ntp_poller; // singleton
+
 static unsigned short ntp_message_sequence_id;
 
-static void poll_ntp_daemon(void)
+// dbior("ntp_monitor_drv", #)
+static
+long ntp_monitor_report(int level)
 {
-    // Polling function to get data from the NTP daemon
-    while(1)
-    {
-        if (ntp_daemon_disable == TRUE)
-            epicsThreadSuspendSelf();
+    printf("iocStats NTPd monitor\n");
+    try {
+        ntpStatus data;
 
-        int ret = devIocStatsGetNtpStats(&ntpstatus);
-        if (ret < 0)
-            ntpstatus.ntpDaemonStatus = NTP_DAEMON_ERROR;
-        else
-            ntpstatus.ntpDaemonStatus = NTP_DAEMON_OK;
+        {
+            Guard G(ntp_poller.lock);
+            data = *ntp_poller.data; // struct copy
+        }
 
-        scanIoRequest(ioscanpvt);
-        epicsThreadSleep(ntp_daemon_poll_rate);
+        printf(" Comm. w/ NTPd: %s\n", data.ntpDaemonOk ? "OK" : "Error");
+        {
+            char buf[100];
+            data.updateTime.strftime(buf, sizeof(buf), "%a %b %d %Y %H:%M:%S.%09f");
+            printf(" Last Update: %s\n", buf);
+        }
+        printf(" Stratum: %d\n", data.ntpStratum);
+
+        if(!data.ntpDaemonOk || level<1)
+            return 0;
+
+        printf(" Min Ref. Stratum: %d\n Max delay: %f\n Max Offset: %f\n Max Jitter: %f\n",
+               data.ntpMinPeerStratum, data.ntpMaxPeerDelay,
+               data.ntpMaxPeerOffset, data.ntpMaxPeerJitter);
+
+        if(level<2)
+            return 0;
+
+        for(size_t i=0; i<data.ntp_peer_data.size(); i++) {
+            ntpPeerData& peer = data.ntp_peer_data[i];
+            printf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
+                   peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
+                   peer.ntpPeerOffset, peer.ntpPeerJitter);
+
+        }
+
+        return 0;
+    } catch(std::exception& e) {
+        printf("  Error: %s\n", e.what());
+        return 1;
     }
+}
+
+static drvet ntp_monitor_drv = {
+    2,
+    (DRVSUPFUN)&ntp_monitor_report,
+    NULL,
+};
+epicsExportAddress(drvet, ntp_monitor_drv);
+
+static
+void ntp_exit(void *)
+{
+    try {
+        Guard G(ntp_poller.lock);
+        if(ntp_poller.running) {
+            ntp_poller.running = false;
+            ntp_poller.event.signal();
+            UnGuard U(G);
+            ntp_poller.thread.exitWait();
+        }
+    }catch(std::exception& e) {
+        std::cerr<<"Error stopping NTP daemon monitor thread: "<<e.what()<<"\n";
+    }
+}
+
+static
+void ntp_hook(initHookState state)
+{
+    // auto-start daemon monitoring
+#if defined(__rtems__) || defined(vxWorks) || defined(_WIN32)
+    if(ntp_verb>1)
+        printf("NTP monitor auto-start disabled for this target\n"
+               " run devIocStatsNTPEnable() for manual start\n");
+#else
+    if(state!=initHookAfterIocRunning)
+        return;
+
+    Guard G(ntp_poller.lock);
+
+    if(!ntp_poller.running) {
+        try {
+            ntp_poller.thread.start();
+            ntp_poller.running = true;
+        } catch(std::exception& e) {
+            std::cerr<<"Error starting NTP daemon monitor thread: "<<e.what()<<"\n";
+        }
+    }
+
+#endif
+    epicsAtExit(&ntp_exit, NULL);
 }
 
 static long ntp_init(int pass)
 {
-
-    if (pass) return 0;
-
-    // Create a thread to poll the NTP daemon and populate the data structure
-    ntp_poll_thread_id = epicsThreadCreate(
-                "NTP_poller_thread",
-                epicsThreadPriorityLow,
-                epicsThreadGetStackSize(epicsThreadStackSmall),
-                (EPICSTHREADFUNC)poll_ntp_daemon,
-                NULL);
-
-    if (ntp_poll_thread_id == NULL)
-    {
-        fprintf(stderr, "epicsThreadCreate failure\n");
-        return -1;
-    }
-
-    scanIoInit(&ioscanpvt);
+    if (pass==1)
+        initHookRegister(&ntp_hook);
 
     return 0;
 }
 
-static long ntp_init_record(void* prec)
+static long ntp_init_record(dbCommon *prec)
 {
-    aiRecord* pr;
-    pr = (aiRecord*)prec;
-
     int		i;
     std::string	parm;
     std::string  parameter;
@@ -211,15 +359,17 @@ static long ntp_init_record(void* prec)
     int     peer;
     pvtNTPArea	*pvtNTP = NULL;
 
+    DBLINK *plink = devIocStatsGetDevLink(prec);
+
     // Check the record INP type
-    if(pr->inp.type!=INST_IO) {
+    if(plink->type!=INST_IO) {
     
-        recGblRecordError(S_db_badField,(void*)pr,
+        recGblRecordError(S_db_badField,(void*)prec,
                 "devAiNTPStats (init_record) Illegal INP field");
         return S_db_badField;
     }
 
-    parm = (std::string)pr->inp.value.instio.string;
+    parm = plink->value.instio.string;
     for(i=0; pvtNTP==NULL; i++)
     {
         // Test if there is a space in the INP string.
@@ -250,222 +400,249 @@ static long ntp_init_record(void* prec)
 
     if(pvtNTP==NULL)
     {
-        recGblRecordError(S_db_badField,(void*)pr,
+        recGblRecordError(S_db_badField,(void*)prec,
                 "devAiNTPPeerStats (init_record) Illegal INP parm field");
         return S_db_badField;
     }
 
-    /* Make sure record processing routine does not perform any conversion*/
-    pr->linr=menuConvertNO_CONVERSION;
-    pr->dpvt=pvtNTP;
+    prec->dpvt=pvtNTP;
     return 0;
 }
 
 // I/O interrupt initialization
-static long ntp_ioint_info(int cmd, void* prec, IOSCANPVT* iopvt)
+static long ntp_ioint_info(int cmd, dbCommon* prec, IOSCANPVT* iopvt)
 {
-    aiRecord* pr;
-    pr = (aiRecord*)prec;
+    if (!prec->dpvt) return S_dev_badInpType;
 
-    pvtNTPArea* pvtNTP=(pvtNTPArea*)pr->dpvt;
-
-    if (!pvtNTP) return S_dev_badInpType;
-
-    *iopvt = ioscanpvt;
+    *iopvt = ntp_poller.scan;
 
     return 0;
 }
 
 /* Generic read - calling function from table */
-static long ntp_read(void* prec)
+static long ntp_read_ai(aiRecord* prec)
 {
-    double val;
-    aiRecord* pr;
-    pr = (aiRecord*)prec;
+    if(!prec->dpvt) {
+        (void)recGblSetSevr(prec, COMM_ALARM, INVALID_ALARM);
+        return S_dev_badInpType;
+    }
+    pvtNTPArea* pvtNTP=(pvtNTPArea*)prec->dpvt;
 
-    pvtNTPArea* pvtNTP=(pvtNTPArea*)pr->dpvt;
+    Guard G(ntp_poller.lock);
 
-    if (!pvtNTP) return S_dev_badInpType;
+    if(pvtNTP->peer<0 || (unsigned)pvtNTP->peer < ntp_poller.data->ntp_peer_data.size()) {
+        double val;
+        statsGetNTPParms[pvtNTP->index].func(&val,pvtNTP->peer);
+        prec->val = val;
+    } else {
+        (void)recGblSetSevr(prec, READ_ALARM, INVALID_ALARM);
+    }
 
-    statsGetNTPParms[pvtNTP->index].func(&val,pvtNTP->peer);
+    if (!ntp_poller.data->ntpDaemonOk)
+        (void)recGblSetSevr(prec, READ_ALARM, INVALID_ALARM);
 
-    pr->val = val;
-
-    if (ntpstatus.ntpDaemonStatus != NTP_DAEMON_OK)
-        (void)recGblSetSevr(pr, READ_ALARM, INVALID_ALARM);
-
-    pr->udf = 0;
+    prec->udf = 0;
     return 2; /* don't convert */
 }
 
+static long ntp_read_si(stringinRecord* prec)
+{
+    if(!prec->dpvt) {
+        (void)recGblSetSevr(prec, COMM_ALARM, INVALID_ALARM);
+        return S_dev_badInpType;
+    }
+    pvtNTPArea* pvtNTP=(pvtNTPArea*)prec->dpvt;
+
+    Guard G(ntp_poller.lock);
+
+    if(pvtNTP->peer<0 || (unsigned)pvtNTP->peer < ntp_poller.data->ntp_peer_data.size()) {
+        strncpy(prec->val,
+                ntp_poller.data->ntp_peer_data[pvtNTP->peer].src.c_str(),
+                sizeof(prec->val));
+        prec->val[sizeof(prec->val)-1] = '\0';
+    } else {
+        (void)recGblSetSevr(prec, READ_ALARM, INVALID_ALARM);
+        strcpy(prec->val, "<no peer>");
+    }
+
+    if (!ntp_poller.data->ntpDaemonOk)
+        (void)recGblSetSevr(prec, READ_ALARM, INVALID_ALARM);
+
+    return 0;
+}
+
 /* -------------------------------------------------------------------- */
+// ntp_poller.lock mutex must be locked when the following are called
 
 static void statsNTPLeapSecond(double* val, int)
 {
-    *val = (double)ntpstatus.ntpLeapSecond;
+    *val = ntp_poller.data->ntpLeapSecond;
 }
 static void statsNTPStratum(double* val, int)
 {
-    *val = (double)ntpstatus.ntpStratum;
+    *val = ntp_poller.data->ntpStratum;
 }
 static void statsNTPPrecision(double* val, int)
 {
-    *val = (double)ntpstatus.ntpPrecision;
+    *val = ntp_poller.data->ntpPrecision;
 }
 static void statsNTPRootDelay(double* val, int)
 {
-    *val = (double)ntpstatus.ntpRootDelay;
+    *val = ntp_poller.data->ntpRootDelay;
 }
 static void statsNTPRootDispersion(double* val, int)
 {
-    *val = (double)ntpstatus.ntpRootDispersion;
+    *val = ntp_poller.data->ntpRootDispersion;
 }
 static void statsNTPTC(double* val, int)
 {
-    *val = (double)ntpstatus.ntpTC;
+    *val = ntp_poller.data->ntpTC;
 }
 static void statsNTPMinTC(double* val, int)
 {
-    *val = (double)ntpstatus.ntpMinTC;
+    *val = ntp_poller.data->ntpMinTC;
 }
 static void statsNTPOffset(double* val, int)
 {
-    *val = (double)ntpstatus.ntpOffset;
+    *val = ntp_poller.data->ntpOffset;
 }
 static void statsNTPFrequency(double* val, int)
 {
-    *val = (double)ntpstatus.ntpFrequency;
+    *val = ntp_poller.data->ntpFrequency;
 }
 static void statsNTPSystemJitter(double* val, int)
 {
-    *val = (double)ntpstatus.ntpSystemJitter;
+    *val = ntp_poller.data->ntpSystemJitter;
 }
 static void statsNTPClockJitter(double* val, int)
 {
-    *val = (double)ntpstatus.ntpClockJitter;
+    *val = ntp_poller.data->ntpClockJitter;
 }
 static void statsNTPClockWander(double* val, int)
 {
-    *val = (double)ntpstatus.ntpClockWander;
+    *val = ntp_poller.data->ntpClockWander;
 }
 static void statsNTPNumPeers(double* val, int)
 {
-    *val = (double)ntpstatus.ntpNumPeers;
+    *val = ntp_poller.data->ntpNumPeers;
 }
 static void statsNTPNumGoodPeers(double* val, int)
 {
-    *val = (double)ntpstatus.ntpNumGoodPeers;
+    *val = ntp_poller.data->ntpNumGoodPeers;
 }
 static void statsNTPMaxPeerOffset(double* val, int)
 {
-    *val = (double)ntpstatus.ntpMaxPeerOffset;
+    *val = ntp_poller.data->ntpMaxPeerOffset;
 }
 static void statsNTPMaxPeerJitter(double* val, int)
 {
-    *val = (double)ntpstatus.ntpMaxPeerJitter;
+    *val = ntp_poller.data->ntpMaxPeerJitter;
 }
 static void statsNTPMinPeerStratum(double* val, int)
 {
-    *val = (double)ntpstatus.ntpMinPeerStratum;
+    *val = ntp_poller.data->ntpMinPeerStratum;
 }
 static void statsNTPPeerSelection(double* val, int peer)
 {
-    *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerSelectionStatus;
+    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerSelectionStatus;
 }
 static void statsNTPPeerStratum(double* val, int peer)
 {
-    *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerStratum;
+    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerStratum;
 }
 static void statsNTPPeerPoll(double* val, int peer)
 {
-    *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerPoll;
+    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerPoll;
 }
 static void statsNTPPeerReach(double* val, int peer)
 {
-    *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerReach;
+    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerReach;
 }
 static void statsNTPPeerDelay(double* val, int peer)
 {
-    *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerDelay;
+    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerDelay;
 }
 static void statsNTPPeerOffset(double* val, int peer)
 {
-    *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerOffset;
+    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerOffset;
 }
 static void statsNTPPeerJitter(double* val, int peer)
 {
-    *val = (double)ntpstatus.ntp_peer_data[peer].ntpPeerJitter;
+    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerJitter;
 }
 
+ntpPeerData::ntpPeerData()
+    :ntpPeerSelectionStatus(0), ntpPeerStratum(16)
+    ,ntpPeerPoll(-1), ntpPeerReach(-1)
+    ,ntpPeerDelay(std::numeric_limits<double>::quiet_NaN())
+    ,ntpPeerOffset(ntpPeerDelay)
+    ,ntpPeerJitter(ntpPeerDelay)
+{}
 
-int devIocStatsGetNtpStats (ntpStatus *pval)
+bool devIocStatsGetNtpStats (ntpStatus *pval)
 {
-    int ret;
-
-    unsigned short association_ids[NTP_MAX_PEERS];
-    unsigned short peer_selections[NTP_MAX_PEERS];
-    int num_associations;
+    std::vector<epicsUInt16> association_ids;
+    std::vector<epicsUInt16> peer_selections;
     std::string ntp_data;
 
     // Perform an NTP variable query to get the system level status
 
-    ret = do_ntp_query( NTP_OP_READ_VAR, NTP_SYS_ASSOCIATION_ID, &ntp_data);
-    if ( ret != 0)
-        return ret;
-
-    if ((ret = parse_ntp_sys_vars(pval, ntp_data)) != 0)
-        return ret;
+    if(!do_ntp_query( NTP_OP_READ_VAR, NTP_SYS_ASSOCIATION_ID, &ntp_data)) {
+        if(ntp_verb>0)
+            errlogPrintf("Failed to get system status\n");
+        // continue and try to fetch associations
+    } else {
+        parse_ntp_sys_vars(pval, ntp_data);
+    }
 
     // Perform an NTP status query to get the association IDs
-    if ((ret = get_association_ids(
+    if (!get_association_ids(
                     association_ids,
-                    peer_selections,
-                    &num_associations,
-                    NTP_MAX_PEERS) != 0))
-        return ret;
+                    peer_selections))
+    {
+        if(ntp_verb>0)
+            errlogPrintf("Failed to read association status\n");
+        return false;
+    }
+    if(ntp_verb>1)
+        errlogPrintf(" Found %u associations\n", (unsigned)association_ids.size());
+
+    pval->ntp_peer_data.resize(association_ids.size());
 
     parse_ntp_associations(
             association_ids,
             peer_selections,
-            num_associations,
             pval);
 
     // Get stats from the peers
-    ret = get_peer_stats(
+    return get_peer_stats(
             association_ids,
-            num_associations,
             pval);
-
-    if (ret < NTP_NO_ERROR)
-        return ret;
-
-    return NTP_NO_ERROR;
 }
 
-void parse_ntp_associations(
-        unsigned short *association_ids,
-        unsigned short *peer_selections,
-        int num_associations,
+void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
+        const std::vector<epicsUInt16>& peer_selections,
         ntpStatus *pval)
 {
-    int i;
-    int num_good_peers;
-    bool reference_peer;
 
-    reference_peer = FALSE;
+    assert(association_ids.size()==peer_selections.size());
 
-    pval->ntpNumPeers = num_associations;
+    bool reference_peer = FALSE;
+
+    pval->ntpNumPeers = association_ids.size();
 
     // Count the number of peers at candidate level or above
-    num_good_peers = 0;
+    unsigned num_good_peers = 0;
 
-    for (i = 0; i < num_associations; i++)
+    for (unsigned i = 0; i < association_ids.size(); i++)
     {
         if (peer_selections[i] >= NTP_PEER_SEL_CANDIDATE)
             num_good_peers++;
 
         if (peer_selections[i] >= NTP_PEER_SEL_SYSPEER)
             reference_peer = TRUE;
+
+        pval->ntp_peer_data[i].ntpPeerSelectionStatus = peer_selections[i];
     }
 
     pval->ntpNumGoodPeers = num_good_peers;
@@ -476,165 +653,60 @@ void parse_ntp_associations(
     else
         pval->ntpSyncStatus = NTP_SYNC_STATUS_UNSYNC;
 
-    // Store the selection statuses
-    //
-    for (i = 0; i < num_associations; i++)
-        pval->ntp_peer_data[i].ntpPeerSelectionStatus = peer_selections[i];
-
+    if(ntp_verb>1)
+        errlogPrintf(" Peers %u/%u %s\n",
+                     (unsigned)pval->ntpNumGoodPeers,
+                     (unsigned)pval->ntpNumPeers,
+                     reference_peer ? "found ref. peer" : "no ref peer");
 }
 
-int parse_ntp_sys_vars(
-        ntpStatus *pval,
-        std::string ntp_data)
+void parse_ntp_sys_vars(ntpStatus *pval,
+        const std::string &ntp_data)
 {
-    //std::string NTP_VERSION ("version");
-    //std::string NTP_PROCESSOR ("processor");
-    //std::string NTP_SYSTEM ("system");
-    std::string NTP_LEAP ("leap");
-    std::string NTP_STRATUM ("stratum");
-    std::string NTP_PRECISION ("precision");
-    std::string NTP_ROOT_DELAY ("rootdelay");
-    std::string NTP_ROOT_DISPERSION ("rootdisp");
-    //std::string NTP_REF_ID ("refid");
-    //std::string NTP_REF_TIME ("reftime");
-    //std::string NTP_CLOCK ("clock");
-    //std::string NTP_PEER ("peer");
-    std::string NTP_TC ("tc");
-    std::string NTP_MINTC ("mintc");
-    std::string NTP_OFFSET ("offset");
-    std::string NTP_FREQUENCY ("frequency");
-    std::string NTP_SYS_JITTER ("sys_jitter");
-    std::string NTP_CLOCK_JITTER ("clk_jitter");
-    std::string NTP_CLOCK_WANDER ("clk_wander");
-    
-    std::string ntp_param_value;
+    ntp_peer_data_t ntp_peer_data(ntp_parse_peer_data(ntp_data));
 
-    ntp_peer_data_t ntp_peer_data;
-    ntp_peer_data_t::const_iterator it;
-    ntp_peer_data = ntp_parse_peer_data(ntp_data);
-
-    try {
-
-        /* Leap second status */
-        it = ntp_peer_data.find(NTP_LEAP);
-        if (it != ntp_peer_data.end())
-            pval->ntpLeapSecond = (int)(strtoul(it->second.c_str(), NULL, 10));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-
-        /* Stratum */
-        it = ntp_peer_data.find(NTP_STRATUM);
-        if (it != ntp_peer_data.end())
-            pval->ntpStratum = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Precision */
-        it = ntp_peer_data.find(NTP_PRECISION);
-        if (it != ntp_peer_data.end())
-            pval->ntpPrecision = (int)(strtol(it->second.c_str(), NULL, 10));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Root delay */
-        it = ntp_peer_data.find(NTP_ROOT_DELAY);
-        if (it != ntp_peer_data.end())
-            pval->ntpRootDelay = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Root dispersion */
-        it = ntp_peer_data.find(NTP_ROOT_DISPERSION);
-        if (it != ntp_peer_data.end())
-            pval->ntpRootDispersion = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Time constant */
-        it = ntp_peer_data.find(NTP_TC);
-        if (it != ntp_peer_data.end())
-            pval->ntpTC = (int)(strtoul(it->second.c_str(), NULL, 10));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Minimum time constant */
-        it = ntp_peer_data.find(NTP_MINTC);
-        if (it != ntp_peer_data.end())
-            pval->ntpMinTC = (int)(strtoul(it->second.c_str(), NULL, 10));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Offset */
-        it = ntp_peer_data.find(NTP_OFFSET);
-        if (it != ntp_peer_data.end())
-            pval->ntpOffset = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Frequency */
-        it = ntp_peer_data.find(NTP_FREQUENCY);
-        if (it != ntp_peer_data.end())
-            pval->ntpFrequency = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* System jitter */
-        it = ntp_peer_data.find(NTP_SYS_JITTER);
-        if (it != ntp_peer_data.end())
-            pval->ntpSystemJitter = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Clock jitter */
-        it = ntp_peer_data.find(NTP_CLOCK_JITTER);
-        if (it != ntp_peer_data.end())
-            pval->ntpClockJitter = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-
-        /* Clock wander */
-        it = ntp_peer_data.find(NTP_CLOCK_WANDER);
-        if (it != ntp_peer_data.end())
-            pval->ntpClockWander = (double)(strtof(it->second.c_str(), NULL));
-        else
-            return NTP_PARSE_PEER_ERROR;
-    }
-    catch (std::exception& e) {
-        errlogPrintf("Error finding peer parameter values. %s\n", e.what());
-        return NTP_PARSE_PEER_ERROR;
-    }
-
-    return NTP_NO_ERROR;
+    pval->ntpLeapSecond = ntp_peer_as<int>(ntp_peer_data, "leap", -1);
+    pval->ntpStratum = ntp_peer_as<int>(ntp_peer_data, "stratum", 16);
+    pval->ntpPrecision = ntp_peer_as<int>(ntp_peer_data, "precision", 0);
+    pval->ntpRootDelay = ntp_peer_as<double>(ntp_peer_data, "rootdelay", -1);
+    pval->ntpRootDispersion = ntp_peer_as<double>(ntp_peer_data, "rootdisp", -1);
+    pval->ntpRootDelay = ntp_peer_as<double>(ntp_peer_data, "rootdelay", 0);
+    pval->ntpTC = ntp_peer_as<int>(ntp_peer_data, "tc", -1);
+    pval->ntpMinTC = ntp_peer_as<int>(ntp_peer_data, "mintc", -1);
+    pval->ntpOffset = ntp_peer_as<double>(ntp_peer_data, "offset", 0);
+    pval->ntpFrequency = ntp_peer_as<double>(ntp_peer_data, "frequency", -1);
+    pval->ntpSystemJitter = ntp_peer_as<double>(ntp_peer_data, "sys_jitter", -1);
+    pval->ntpClockJitter = ntp_peer_as<double>(ntp_peer_data, "clk_jitter", -1);
+    pval->ntpClockWander = ntp_peer_as<double>(ntp_peer_data, "clk_wander", -1);
 }
 
-int do_ntp_query(
-        unsigned char op_code,
+namespace {
+struct Socket {
+    SOCKET sd;
+    Socket() :sd(socket(PF_INET, SOCK_DGRAM, 0))
+    {
+        if(sd<0)
+            throw std::runtime_error("Failed to create DGRAM socket");
+    }
+    ~Socket() {
+        close(sd);
+    }
+    operator int() { return sd; }
+};
+}
+
+bool do_ntp_query(unsigned char op_code,
         unsigned short association_id,
         std::string *ntp_data
         )
 {
     struct sockaddr_in ntp_socket;
     struct in_addr address;
-    int sd;
     int ret;
     fd_set fds;
     struct timeval timeout_val;
-    //unsigned int i;
-    //int next_offset;
-    unsigned short count;
-    unsigned short offset;
-    unsigned short return_seq_id;
-    unsigned short return_association_id;
 
-    std::string ntp_data_result;
-
-    struct ntp_control *ntp_message;
-    ntp_message = (struct ntp_control *)malloc(sizeof(struct ntp_control));
-
-    vector <ntpDataFragment> ntp_data_fragments;
-
-    ntpDataFragment ntp_data_fragment = ntpDataFragment();
+    std::vector<unsigned char> ntp_message;
 
     // Set up the socket to the local NTP daemon
     inet_aton("127.0.0.1", &address);
@@ -643,23 +715,13 @@ int do_ntp_query(
     ntp_socket.sin_port = htons(NTP_PORT);
 
     /* Create the socket */
-    if ((sd = socket(PF_INET, SOCK_DGRAM, 0)) < 0)
-        return NTP_SOCKET_OPEN_ERROR;
+    Socket sd;
 
     if (connect(sd, (struct sockaddr *)&ntp_socket, sizeof(ntp_socket)) < 0)
-        return NTP_SOCKET_CONNECT_ERROR;
+        throw std::runtime_error("Error \"connecting\" UDP socket");
 
     FD_ZERO(&fds);
     FD_SET(sd, &fds);
-
-    // Initialise the NTP control packet
-    memset(ntp_message, 0, sizeof(struct ntp_control));
-
-    // Populate the NTP control packet
-    ntp_message->ver_mode = NTP_VER_MODE;
-    ntp_message->op_code = op_code;
-    ntp_message->association_id0 = association_id / 0x100;
-    ntp_message->association_id1 = association_id % 0x100;
 
     // Use a different sequence ID each time
     ntp_message_sequence_id++;
@@ -668,15 +730,36 @@ int do_ntp_query(
     if (ntp_message_sequence_id == 0)
         ntp_message_sequence_id++;
 
-    ntp_message->sequence0 = ntp_message_sequence_id / 0x100;
-    ntp_message->sequence1 = ntp_message_sequence_id % 0x100;
+    // Populate the NTP control packet
+    /*      0     1
+     * 0 | MODE | OP |
+     * 2 |    SEQ    |
+     * 4 |    STS    |
+     * 6 |    AID    |
+     * 8 |    OFF    |
+     * A |    LEN    |
+     * C |  body...
+     */
+    ntp_message.push_back(NTP_VER_MODE);
+    ntp_message.push_back(op_code);
+    ntp_message.push_back(ntp_message_sequence_id>>8);
+    ntp_message.push_back(ntp_message_sequence_id);
+    ntp_message.push_back(0); // status
+    ntp_message.push_back(0);
+    ntp_message.push_back(association_id>>8);
+    ntp_message.push_back(association_id);
+    ntp_message.push_back(0); // offset
+    ntp_message.push_back(0);
+    ntp_message.push_back(0); // length
+    ntp_message.push_back(0);
+    // no body in request
 
     timeout_val.tv_sec = 0;
     timeout_val.tv_usec = 500000;
 
     // Send the request to the NTP daemon
-    if (send(sd, ntp_message, sizeof(*ntp_message), 0) < 0)
-        return NTP_COMMAND_SEND_ERROR;
+    if (send(sd, &ntp_message[0], ntp_message.size(), 0) < 0)
+        throw std::runtime_error("NTP send() error");
 
     NTPAssembler ntp_assembler;
 
@@ -684,81 +767,68 @@ int do_ntp_query(
     {
         // Clear the message structure contents prior to receiving the new
         // message
-        memset(ntp_message, 0, sizeof(struct ntp_control));
+        ntp_message.clear();
+        ntp_message.resize(1024*16);
 
         // Wait for a response
         ret = select(sd+1, &fds, (fd_set *)0, (fd_set *)0, &timeout_val);
 
-        if (ret == 0)
-            return NTP_TIMEOUT_ERROR;
+        if (ret == 0) {
+            return false;
 
-        if (ret == -1)
-            return NTP_SELECT_ERROR;
+        } else if (ret == -1) {
+            int err = SOCKERRNO;
+            if(err==SOCK_EINTR) {
+                continue;
+            } else {
+                throw std::runtime_error("NTP select() error");
+            }
+        }
 
         // Read the response
 
 
-        ret = recv(sd, ntp_message, sizeof(*ntp_message), 0);
+        ret = recv(sd, &ntp_message[0], ntp_message.size(), 0);
 
-        if (ret  < 0)
-            return NTP_DAEMON_COMMS_ERROR;
+        if (ret < 0) {
+            int err = SOCKERRNO;
+            if(err==SOCK_EINTR) {
+                continue;
+            } else {
+                throw std::runtime_error("NTP recv() error");
+            }
+        }
+        else if (ret<6*2) {
+            // truncated packet?
+            throw std::runtime_error("NTP recv() truncated packet");
+        }
+
+        ntp_message.resize((size_t)ret);
 
         // Check that the sequence ID and association IDs match
-        return_seq_id = 
-            0x100 * ntp_message->sequence0 + 
-            ntp_message->sequence1;
-        return_association_id = 
-            0x100 * ntp_message->association_id0 + 
-            ntp_message->association_id1;
+        bool reply = ntp_message[1]&RESPONSE_MASK;
+        bool more  = ntp_message[1]&MORE_MASK;
+        epicsUInt16 seq = ntohs(*(epicsUInt16*)&ntp_message[2]);
+        epicsUInt16 aid = ntohs(*(epicsUInt16*)&ntp_message[6]);
+        epicsUInt16 off = ntohs(*(epicsUInt16*)&ntp_message[8]);
+        epicsUInt16 len = ntohs(*(epicsUInt16*)&ntp_message[10]);
 
-        if ((return_seq_id != ntp_message_sequence_id) ||
-                (return_association_id != association_id))
-            return NTP_SEQ_AID_ERROR;
+        if(!reply || seq!=ntp_message_sequence_id || aid!=association_id) {
+            continue; // not a reply to our request, ignore
 
-        // Extract the status bit that tells us if we have more data waiting
-        bool more_bit = (ntp_message->op_code & MORE_MASK) >> MORE_SHIFT;
-
-        count = 0x100 * ntp_message->count0 + ntp_message->count1;
-        offset = 0x100 * ntp_message->offset0 + ntp_message->offset1;
-        return_seq_id = 0x100 * ntp_message->sequence0 + ntp_message->sequence1;
-
-        ntp_data_fragment.offset = offset;
-        ntp_data_fragment.count = count;
-        ntp_data_fragment.data = ntp_message->data;
+        } else if(len+12u>ntp_message.size()) {
+            throw std::runtime_error("Ignore truncated UDP");
+        }
 
         ntp_assembler.add(
-                ntp_data_fragment.offset, 
-                ntp_data_fragment.count, 
-                more_bit, 
-                ntp_data_fragment.data.c_str());
-
-        //ntp_data_fragments.push_back(ntp_data_fragment);
+                off,
+                len,
+                more,
+                &ntp_message[12]);
     }
 
-    // Assemble the returned data into a single string
-    /*
-       next_offset = 0;
-       for (i = 0; i < ntp_data_fragments.size(); i++)
-       for (vector<ntpDataFragment>::iterator it = ntp_data_fragments.begin(); 
-       it != ntp_data_fragments.end(); 
-       ++it)
-       if (it->offset == next_offset)
-       {
-       ntp_data_result += it->data;
-       next_offset = it->count;
-       break;
-       }
-       */
-
     *ntp_data = ntp_assembler.tostring();
-
-    free(ntp_message);
-
-    // Close the socket now that we've received the message
-    close(sd);
-
-    return 0;
-
+    return true;
 }
 
 // Get the following statistics from the peers:
@@ -773,143 +843,90 @@ int do_ntp_query(
 // - delay
 // - offset
 // - jitter
-int get_peer_stats(
-        unsigned short *association_ids,
-        int num_peers,
+bool get_peer_stats(
+        const std::vector<epicsUInt16>& association_ids,
         ntpStatus *pval
         )
 {
-    int i;
-    int ret;
-
     std::string ntp_data;
-    std::string ntp_param_value;
 
-    std::string NTP_PEER_STRATUM ("stratum");
-    std::string NTP_PEER_POLL ("ppoll");
-    std::string NTP_PEER_REACH ("reach");
-    std::string NTP_ROOT_DELAY ("rootdelay");
-    std::string NTP_PEER_DELAY ("delay");
-    std::string NTP_PEER_OFFSET ("offset");
-    std::string NTP_PEER_JITTER ("jitter");
-    std::string SEPARATOR (",");
-
-    int stratums[NTP_MAX_PEERS];
-    int polls[NTP_MAX_PEERS];
-    int reaches[NTP_MAX_PEERS];
-    double delays[NTP_MAX_PEERS];
-    double offsets[NTP_MAX_PEERS];
-    double jitters[NTP_MAX_PEERS];
-
-    double max_delay;
-    double max_jitter;
-    double max_offset;
-    double min_stratum;
+    assert(pval->ntp_peer_data.size()==association_ids.size());
 
     ntp_peer_data_t ntp_peer_data;
 
+    pval->ntpMaxPeerDelay = 0.0;
+    pval->ntpMaxPeerOffset = 0.0;
+    pval->ntpMaxPeerJitter = 0.0;
+    pval->ntpMinPeerStratum = 16;
+
     // Iterate through the associated peers and gather the required data
-    for (i = 0; i < num_peers; i++)
+    for (unsigned i = 0; i < association_ids.size(); i++)
     {
-        ret = do_ntp_query(
+        ntpPeerData& peer = pval->ntp_peer_data[i];
+
+        if(!do_ntp_query(
                 NTP_OP_READ_STS, 
                 association_ids[i], 
-                &ntp_data);
-        if (ret < 0)
-            return ret;
+                &ntp_data))
+            return false;
 
         ntp_peer_data = ntp_parse_peer_data(ntp_data);
-        try {
+        {
             ntp_peer_data_t::const_iterator it;
 
-            it = ntp_peer_data.find(NTP_PEER_STRATUM);
-            if (it != ntp_peer_data.end())
-                stratums[i] = (int)strtoul(it->second.c_str(), NULL, 10);
+            std::ostringstream name;
+            it = ntp_peer_data.find("srcadr");
+            if(it==ntp_peer_data.end())
+                name<<"<unknown>";
             else
-                return NTP_PARSE_PEER_ERROR;
+                name<<it->second;
+            name<<":";
+            it = ntp_peer_data.find("srcport");
+            if(it==ntp_peer_data.end())
+                name<<"<unknown>";
+            else
+                name<<it->second;
 
-            it = ntp_peer_data.find(NTP_PEER_POLL);
-            if (it != ntp_peer_data.end())
-                polls[i] = (int)strtoul(it->second.c_str(), NULL, 10);
-            else
-                return NTP_PARSE_PEER_ERROR;
+            peer.src = name.str();
 
-            it = ntp_peer_data.find(NTP_PEER_REACH);
-            if (it != ntp_peer_data.end())
-                reaches[i] = (int)strtoul(it->second.c_str(), NULL, 16);
-            else
-                return NTP_PARSE_PEER_ERROR;
+            peer.ntpPeerStratum = ntp_peer_as<int>(ntp_peer_data, "stratum", 16);
+            pval->ntpMinPeerStratum = std::min(pval->ntpMinPeerStratum,
+                                               peer.ntpPeerStratum);
 
-            it = ntp_peer_data.find(NTP_PEER_DELAY);
-            if (it != ntp_peer_data.end())
-                delays[i] = strtof(it->second.c_str(), NULL);
-            else
-                return NTP_PARSE_PEER_ERROR;
+            peer.ntpPeerPoll = ntp_peer_as<int>(ntp_peer_data, "ppoll", -1);
+            peer.ntpPeerReach = ntp_peer_as<int>(ntp_peer_data, "reach", -1);
 
-            it = ntp_peer_data.find(NTP_PEER_OFFSET);
-            if (it != ntp_peer_data.end())
-                offsets[i] = strtof(it->second.c_str(), NULL);
-            else
-                return NTP_PARSE_PEER_ERROR;
+            peer.ntpPeerDelay = ntp_peer_as<double>(ntp_peer_data, "delay",
+                                                 std::numeric_limits<double>::quiet_NaN());
+            if(fabs(pval->ntpMaxPeerDelay)<fabs(peer.ntpPeerDelay))
+                pval->ntpMaxPeerDelay = peer.ntpPeerDelay;
 
-            it = ntp_peer_data.find(NTP_PEER_JITTER);
-            if (it != ntp_peer_data.end())
-                jitters[i] = strtof(it->second.c_str(), NULL);
-            else
-                return NTP_PARSE_PEER_ERROR;
+            peer.ntpPeerOffset = ntp_peer_as<double>(ntp_peer_data, "offset",
+                                                  std::numeric_limits<double>::quiet_NaN());
+            if(fabs(pval->ntpMaxPeerOffset)<fabs(peer.ntpPeerOffset))
+                pval->ntpMaxPeerOffset = peer.ntpPeerOffset;
+
+            peer.ntpPeerJitter = ntp_peer_as<double>(ntp_peer_data, "jitter",
+                                                  std::numeric_limits<double>::quiet_NaN());
+            pval->ntpMaxPeerJitter = std::max(pval->ntpMaxPeerJitter, peer.ntpPeerJitter);
+
+            if(ntp_verb>3)
+                errlogPrintf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
+                             peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
+                             peer.ntpPeerOffset, peer.ntpPeerJitter);
         }
-        catch(std::exception& e) {
-            errlogPrintf("Error finding peer parameter values. %s\n", e.what());
-            return NTP_PARSE_PEER_ERROR;
-        }
     }
 
+    if(ntp_verb>2)
+        errlogPrintf(" Min Ref. Stratum: %d\n Max delay: %f\n Max Offset: %f\n Max Jitter: %f\n",
+               pval->ntpMinPeerStratum, pval->ntpMaxPeerDelay,
+               pval->ntpMaxPeerOffset, pval->ntpMaxPeerJitter);
 
-    // Iterate through the gathered data and extract the required values
-
-    max_delay = delays[0];
-    max_offset = offsets[0];
-    max_jitter = jitters[0];
-    min_stratum = stratums[0];
-
-    for (i = 1; i < num_peers; i++)
-    {
-        if (abs(offsets[i]) > abs(max_offset))
-            max_offset = offsets[i];
-
-        if (abs(delays[i]) > abs(max_delay))
-            max_delay = delays[i];
-
-        if (jitters[i] > max_jitter)
-            max_jitter = jitters[i];
-
-        if (stratums[i] < min_stratum)
-            min_stratum = stratums[i];
-    }
-
-    // Transfer the peer data
-    for (i = 0; i < num_peers; i++)
-    {
-        pval->ntp_peer_data[i].ntpPeerStratum = stratums[i];
-        pval->ntp_peer_data[i].ntpPeerPoll = polls[i];
-        pval->ntp_peer_data[i].ntpPeerReach = reaches[i];
-        pval->ntp_peer_data[i].ntpPeerDelay = delays[i];
-        pval->ntp_peer_data[i].ntpPeerOffset = offsets[i];
-        pval->ntp_peer_data[i].ntpPeerJitter = jitters[i];
-    }
-
-    // Transfer the values 
-    pval->ntpMaxPeerDelay = max_delay;
-    pval->ntpMaxPeerOffset = max_offset;
-    pval->ntpMaxPeerJitter = max_jitter;
-    pval->ntpMinPeerStratum = min_stratum;
-
-    return NTP_NO_ERROR;
+    return true;
 }
 
-bool find_substring(
-        const std::string data, 
-        const std::string pattern, 
+bool find_substring(const std::string &data,
+        const std::string &pattern,
         std::string *value)
 {
     // Call to this version of the function will give the first instance of the
@@ -918,9 +935,8 @@ bool find_substring(
     return find_substring(data, pattern, 1, value);
 }
 
-bool find_substring(
-        const std::string data, 
-        const std::string pattern, 
+bool find_substring(const std::string &data,
+        const std::string &pattern,
         int occurrence,
         std::string *value)
 {
@@ -959,56 +975,37 @@ bool find_substring(
 }
 
 
-int get_association_ids(
-        unsigned short *association_ids, 
-        unsigned short *peer_selections, 
-        int *num_associations,
-        int max_association_ids)
+bool get_association_ids(std::vector<unsigned short>& association_ids,
+                         std::vector<unsigned short>& peer_selections
+                         )
 {
     unsigned int i;
-    int ret;
-    int association_count;
-    unsigned short association_id;
-    int peer_sel;
     std::string ntp_data;
 
     // Finds the integer values used to identify the NTP peer servers
     //
     // Send a system level read status query
-    ret = do_ntp_query(
+    if(!do_ntp_query(
             NTP_OP_READ_STS, 
             NTP_SYS_ASSOCIATION_ID, 
-            &ntp_data);
-    if (ret != 0)
-        return ret;
+            &ntp_data))
+        return false;
 
     // Extract the association IDs from the response
-    association_count = 0;
     for (i = 0; i < ntp_data.length(); i += 4)
     {
-        association_id = 0x100 * (unsigned char) ntp_data.at(i);
-        association_id += (unsigned char) ntp_data.at(i+1);
+        unsigned short *ppeer = (unsigned short*)&ntp_data[i];
+        unsigned short aid = ntohs(ppeer[0]),
+                       sts = ntohs(ppeer[1]);
 
-        // Get the peer selection status
-        peer_sel = (ntp_data.at(i+2) & PEER_SEL_MASK) >> PEER_SEL_SHIFT;
-
-        // Check if we have reached the end of the IDs
-        if (association_id == 0)
+        if(aid==0)
             break;
 
-        // Return the values to the calling function
-        association_ids[association_count] = association_id;
-        peer_selections[association_count] = peer_sel;
-        association_count++;
-
-        // Check if we have reached the limit of the associations allowed for
-        if (association_count >= max_association_ids)
-            break;
+        association_ids.push_back(aid);
+        peer_selections.push_back((sts&PEER_SEL_MASK)>>PEER_SEL_SHIFT);
     }
 
-    *num_associations = association_count;
-
-    return 0;
+    return true;
 }
 
 static const iocshArg devIocStatsNTPSetPollRateArg0 = {"rate", iocshArgInt};
@@ -1038,7 +1035,18 @@ static const iocshFuncDef devIocStatsNTPDisableDef = {
 
 epicsShareFunc void devIocStatsNTPDisable(void)
 {
-    ntp_daemon_disable = TRUE;
+    Guard G(ntp_poller.lock);
+
+    if(ntp_poller.running) {
+        try {
+            ntp_poller.running = false;
+            ntp_poller.event.signal();
+            UnGuard U(G);
+            ntp_poller.thread.exitWait();
+        } catch(std::exception& e) {
+            std::cerr<<"Error stopping NTP daemon monitor thread: "<<e.what()<<"\n";
+        }
+    }
 }
 
 static void devIocStatsNTPDisableCall(const iocshArgBuf * args)
@@ -1053,8 +1061,16 @@ static const iocshFuncDef devIocStatsNTPEnableDef = {
 
 epicsShareFunc void devIocStatsNTPEnable(void)
 {
-    ntp_daemon_disable = FALSE;
-    epicsThreadResume(ntp_poll_thread_id);
+    Guard G(ntp_poller.lock);
+
+    if(!ntp_poller.running) {
+        try {
+            ntp_poller.thread.start();
+            ntp_poller.running = true;
+        } catch(std::exception& e) {
+            std::cerr<<"Error starting NTP daemon monitor thread: "<<e.what()<<"\n";
+        }
+    }
 }
 
 static void devIocStatsNTPEnableCall(const iocshArgBuf * args)

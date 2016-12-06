@@ -1,2 +1,6 @@
 device(ai,INST_IO,devNTPStats,"IOC NTP stats")
+device(stringin,INST_IO,devNTPStatsName,"IOC NTP stats")
 registrar(devIocStatsNTPRegister)
+driver(ntp_monitor_drv)
+variable(ntp_daemon_poll_rate, int)
+variable(ntp_verb, int)

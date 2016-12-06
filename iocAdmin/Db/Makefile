@@ -26,8 +26,9 @@ DB += iocAdminSoft.db
 DB += iocAdminRTEMS.db
 DB += iocAdminScanMon.db
 ifeq ($(USE_NTP), YES)
+  DB += iocNTPBase.template
+  DB += iocNTPPeer.template
   DB += iocNTP.db
-  DB += iocNTPPeer.db
 endif
 
 #

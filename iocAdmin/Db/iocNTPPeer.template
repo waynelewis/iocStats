@@ -1,5 +1,13 @@
 # NTP peer information
 #
+
+record(stringin, "$(IOCNAME):NTP_PEER_$(PEER)_SRC") {
+  field(DESC, "NTP peer $(PEER) IP address")
+  field(SCAN, "I/O Intr")
+  field(DTYP, "IOC NTP stats")
+  field(INP,  "@ntp_peer_selection $(PEER)")
+}
+
 # Peer selection status
 record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_SELECTION_") {
   field(DESC, "NTP peer $(PEER) selection status value")
@@ -37,6 +45,8 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_STRATUM") {
   field(DESC, "NTP peer $(PEER) stratum")
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
+  field(HIHI, "16")
+  field(HHSV, "MAJOR")
 	field(PREC, "0")
   field(INP,  "@ntp_peer_stratum $(PEER)")
 }
@@ -72,6 +82,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_DELAY") {
   field(DESC, "NTP peer $(PEER) delay")
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
+  field(EGU , "ms")
 	field(PREC, "3")
   field(INP,  "@ntp_peer_delay $(PEER)")
 }
@@ -81,6 +92,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_OFFSET") {
   field(DESC, "NTP peer $(PEER) offset")
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
+  field(EGU , "ms")
 	field(PREC, "3")
   field(INP,  "@ntp_peer_offset $(PEER)")
 }
@@ -90,7 +102,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_JITTER") {
   field(DESC, "NTP peer $(PEER) jitter")
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
+  field(EGU , "ms")
 	field(PREC, "3")
   field(INP,  "@ntp_peer_jitter $(PEER)")
 }
-

@@ -1,0 +1,13 @@
+
+file "iocNTPBase.template"
+{
+ {IOCNAME="\$(IOCNAME)"}
+}
+
+file "iocNTPPeer.template"
+{
+ {IOCNAME="\$(IOCNAME)", PEER="0"}
+ {IOCNAME="\$(IOCNAME)", PEER="1"}
+ {IOCNAME="\$(IOCNAME)", PEER="2"}
+ {IOCNAME="\$(IOCNAME)", PEER="3"}
+}

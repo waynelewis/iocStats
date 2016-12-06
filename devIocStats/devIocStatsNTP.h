@@ -9,25 +9,26 @@
 * in file LICENSE that is included with this distribution.
 \*************************************************************************/
 
-/* devIocStatsNTP.c - device support routines for NTP statistics - based on */
+/* devIocStatsNTP.cpp - device support routines for NTP statistics - based on */
 /*
  *  Author: Wayne Lewis
  *  Date:  2016-11-06
  */
 
 /* NTP definitions */
-/* Maximum number of peers that we report information for */
-#define NTP_MAX_PEERS 10
 
 #include <string>
-using namespace std;
+#include <vector>
+
+#include <epicsTime.h>
+
+using std::string;
 
 // Record interface structures 
 struct pvtNTPArea
 {
-    int index;
-    int type;
-    int peer;
+    unsigned index;
+    int peer; // -1 for data not associated with a peer
 };
 typedef struct pvtNTPArea pvtNTPArea;
 
@@ -38,7 +39,6 @@ struct validNTPGetParms
     string name;
     statNTPGetFunc func;
 };
-typedef struct validNTPGetParms validNTPGetParms;
 
 struct aStatsNTP
 {
@@ -53,7 +53,8 @@ struct aStatsNTP
 typedef struct aStatsNTP aStatsNTP;
 
 // Data containing structures
-typedef struct _ntpPeerData {
+struct ntpPeerData {
+        std::string src;
         int ntpPeerSelectionStatus;
         int ntpPeerStratum;
         int ntpPeerPoll;
@@ -61,10 +62,12 @@ typedef struct _ntpPeerData {
         double ntpPeerDelay;
         double ntpPeerOffset;
         double ntpPeerJitter;
-} ntpPeerData;
+        ntpPeerData();
+};
 
-typedef struct _ntpStatus {
-        bool ntpDaemonStatus;
+struct ntpStatus {
+        epicsTime updateTime;
+        bool ntpDaemonOk;
         int ntpLeapSecond;
         int ntpStratum;
         int ntpPrecision;
@@ -84,21 +87,14 @@ typedef struct _ntpStatus {
         double ntpMaxPeerJitter;
         int ntpMinPeerStratum;
         int ntpSyncStatus;
-        ntpPeerData ntp_peer_data[NTP_MAX_PEERS];
-} ntpStatus;
-
-class ntpDataFragment {
-    public:
-        int offset;
-        int count;
-        string data;
+        std::vector<ntpPeerData> ntp_peer_data;
+        ntpStatus() :ntpDaemonOk(false), ntpStratum(16) {}
 };
-
 
 
 /* NTP status functions */
 //extern int devIocStatsInitNtpStats (void);
-int devIocStatsGetNtpStats (ntpStatus *pval);
+bool devIocStatsGetNtpStats(ntpStatus *pval);
 
 #define NTP_PORT    123
 
@@ -175,47 +171,38 @@ struct ntp_control {
 
 // Function prototypes
 
-static void poll_ntp_daemon(void);
-
 bool find_substring(
-        const string data,
-        const string pattern,
+        const string& data,
+        const string& pattern,
         string *result);
 
 bool find_substring(
-        const string data,
-        const string pattern,
+        const string& data,
+        const string& pattern,
         int occurrence,
         string *result);
 
-int do_ntp_query(
+bool do_ntp_query(
         unsigned char op_code, 
         unsigned short association_id,
-        string *ntp_data
+        std::string *ntp_data
         );
 
-int get_association_ids(
-        unsigned short *association_ids,
-        unsigned short *peer_selections,
-        int *num_associations,
-        int max_association_ids
-        );
+bool get_association_ids(std::vector<unsigned short> &association_ids,
+                         std::vector<unsigned short> &peer_selections
+                         );
 
-int get_peer_stats(
-        unsigned short *association_ids,
-        int num_peers,
+bool get_peer_stats(const std::vector<epicsUInt16> &association_ids,
         ntpStatus *pval
         );
 
-void parse_ntp_associations(
-        unsigned short *association_ids,
-        unsigned short *peer_selections,
-        int num_associations,
+void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
+        const std::vector<epicsUInt16>& peer_selections,
         ntpStatus *pval);
 
-int parse_ntp_sys_vars(
+void parse_ntp_sys_vars(
         ntpStatus *pval, 
-        string ntp_data);
+        const string& ntp_data);
 
 unsigned short reverse(unsigned short);
 
