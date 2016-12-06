@@ -41,10 +41,6 @@
 #define ENGINEER "ENGINEER"
 #define LOCATION "LOCATION"
 
-/* NTP definitions */
-/* Maximum number of peers that we report information for */
-#define NTP_MAX_PEERS 10
-
 #include "devIocStatsOSD.h"
 
 #ifdef __cplusplus
@@ -61,36 +57,6 @@ typedef struct {
     double numBlocksAlloc;
     double maxBlockSizeFree;
 } memInfo;
-
-typedef struct {
-    int ntpVersionNumber;
-    int ntpLeapSecond;
-    int ntpStratum;
-    int ntpPrecision;
-    double ntpRootDelay;
-    double ntpRootDispersion;
-    int ntpTC;
-    int ntpMinTC;
-    double ntpOffset;
-    double ntpFrequency;
-    double ntpSystemJitter;
-    double ntpClockJitter;
-    double ntpClockWander;
-    int ntpNumPeers;
-    int ntpNumGoodPeers;
-    double ntpMaxPeerDelay;
-    double ntpMaxPeerOffset;
-    double ntpMaxPeerJitter;
-    int ntpMinPeerStratum;
-    int ntpSyncStatus;
-    int ntpPeerSelectionStatus[NTP_MAX_PEERS];
-    int ntpPeerStratums[NTP_MAX_PEERS];
-    int ntpPeerPolls[NTP_MAX_PEERS];
-    int ntpPeerReaches[NTP_MAX_PEERS];
-    double ntpPeerDelays[NTP_MAX_PEERS];
-    double ntpPeerOffsets[NTP_MAX_PEERS];
-    double ntpPeerJitters[NTP_MAX_PEERS];
-} ntpStatus;
 
 typedef struct {
     int used;
