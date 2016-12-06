@@ -1,3 +1,6 @@
+#ifndef DEVIOCSTATS_H
+#define DEVIOCSTATS_H
+
 /*************************************************************************\
 * Copyright (c) 2009-2010 Helmholtz-Zentrum Berlin
 *     fuer Materialien und Energie GmbH.
@@ -43,6 +46,10 @@
 #define NTP_MAX_PEERS 10
 
 #include "devIocStatsOSD.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef int clustInfo[CLUSTSIZES][4];
 
@@ -101,6 +108,12 @@ typedef struct {
     double iocLoad;
 } loadInfo;
 
+struct link;
+struct dbCommon;
+
+/* return pointer to INP or OUT link.  Or NULL if record has neither */
+struct link* devIocStatsGetDevLink(struct dbCommon *prec);
+
 /* Functions (API) for OSD layer */
 /* All funcs return 0 (OK) / -1 (ERROR) */
 
@@ -155,3 +168,8 @@ extern int devIocStatsGetHostname (char **pval);
 extern int devIocStatsGetPID (double *proc_id);
 extern int devIocStatsGetPPID (double *proc_id);
 
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif /* DEVIOCSTATS_H */

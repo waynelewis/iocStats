@@ -27,6 +27,7 @@ devIocStats_SRCS += devIocStatsAnalog.c
 devIocStats_SRCS += devIocStatsString.c
 devIocStats_SRCS += devIocStatsWaveform.c
 devIocStats_SRCS += devIocStatsSub.c
+devIocStats_SRCS += devIocStatsRec.c
 devIocStats_SRCS += devIocStatsTest.c
 ifeq ($(USE_NTP), YES)
   devIocStats_SRCS += devIocStatsNTP.cpp
