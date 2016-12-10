@@ -24,6 +24,7 @@
 	Note that the valid values for the parm field of the link
 	information are:
 
+    TODO: Change these to use the standard NTP daemon names.
 	ai (DTYP="IOC stats NTP"):
         ntp_leap_second     - NTP leap second status
         ntp_stratum         - NTP server stratum
@@ -129,6 +130,7 @@ static void statsNTPPeerOffset(double *, int);
 static void statsNTPPeerJitter(double *, int);
 
 static validNTPGetParms statsGetNTPParms[]={
+    //TODO: Get rid of different functions that extract data from maps
     { "ntp_leap_second",    statsNTPLeapSecond },
     { "ntp_stratum",        statsNTPStratum },
     { "ntp_precision",      statsNTPPrecision },
@@ -483,6 +485,7 @@ static long ntp_read_si(stringinRecord* prec)
 /* -------------------------------------------------------------------- */
 // ntp_poller.lock mutex must be locked when the following are called
 
+//TODO: Create single function that reads all map data
 static void statsNTPLeapSecond(double* val, int)
 {
     //*val = ntp_poller.data->ntpLeapSecond;
