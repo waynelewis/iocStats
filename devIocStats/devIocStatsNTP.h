@@ -53,38 +53,17 @@ struct aStatsNTP
 };
 typedef struct aStatsNTP aStatsNTP;
 
+//TODO: Fix the name of ntp_peer_data_t as it is used for both 
+//      peer and system data
+//      Or create ntp_sys_data_t of the same type?
 typedef std::map<std::string, std::string> ntp_peer_data_t;
+typedef std::map<std::string, std::string> ntp_sys_data_t;
 
 // Data containing structures
-/*
-struct ntpPeerData {
-        std::string src;
-        int ntpPeerSelectionStatus;
-        int ntpPeerStratum;
-        int ntpPeerPoll;
-        int ntpPeerReach;
-        double ntpPeerDelay;
-        double ntpPeerOffset;
-        double ntpPeerJitter;
-        ntpPeerData();
-};
-*/
 
 struct ntpStatus {
         epicsTime updateTime;
         bool ntpDaemonOk;
-        int ntpLeapSecond;
-        int ntpStratum;
-        int ntpPrecision;
-        double ntpRootDelay;
-        double ntpRootDispersion;
-        int ntpTC;
-        int ntpMinTC;
-        double ntpOffset;
-        double ntpFrequency;
-        double ntpSystemJitter;
-        double ntpClockJitter;
-        double ntpClockWander;
         int ntpNumPeers;
         int ntpNumGoodPeers;
         double ntpMaxPeerDelay;
@@ -93,8 +72,10 @@ struct ntpStatus {
         int ntpMinPeerStratum;
         int ntpSyncStatus;
         std::vector<ntp_peer_data_t> ntp_peer_data;
-        //std::vector<ntpPeerData> ntp_peer_data;
-        ntpStatus() :ntpDaemonOk(false), ntpStratum(16) {}
+        // TODO: Work out method of creating default value
+        //ntpStatus() :ntpDaemonOk(false), ntpStratum(16) {}
+        ntp_sys_data_t ntp_sys_data;
+        ntpStatus() :ntpDaemonOk(false) {}
 };
 
 
@@ -205,10 +186,6 @@ bool get_peer_stats(const std::vector<epicsUInt16> &association_ids,
 void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
         const std::vector<epicsUInt16>& peer_selections,
         ntpStatus *pval);
-
-void parse_ntp_sys_vars(
-        ntpStatus *pval, 
-        const string& ntp_data);
 
 unsigned short reverse(unsigned short);
 

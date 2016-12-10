@@ -269,7 +269,8 @@ long ntp_monitor_report(int level)
             data.updateTime.strftime(buf, sizeof(buf), "%a %b %d %Y %H:%M:%S.%09f");
             printf(" Last Update: %s\n", buf);
         }
-        printf(" Stratum: %d\n", data.ntpStratum);
+        //printf(" Stratum: %d\n", data.ntpStratum);
+        printf(" Stratum: %s\n", data.ntp_sys_data["stratum"].c_str());
 
         if(!data.ntpDaemonOk || level<1)
             return 0;
@@ -284,9 +285,6 @@ long ntp_monitor_report(int level)
         for(size_t i=0; i<data.ntp_peer_data.size(); i++) {
             //ntpPeerData& peer = data.ntp_peer_data[i];
             ntp_peer_data_t ntp_peer_data = data.ntp_peer_data[i];
-            //printf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
-                   //peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
-                   //peer.ntpPeerOffset, peer.ntpPeerJitter);
             printf(" Peer %19s statum=%s delay=%s offset=%s jitter=%s\n",
                    ntp_peer_data["srcadr"].c_str(), 
                    ntp_peer_data["stratum"].c_str(), 
@@ -487,51 +485,63 @@ static long ntp_read_si(stringinRecord* prec)
 
 static void statsNTPLeapSecond(double* val, int)
 {
-    *val = ntp_poller.data->ntpLeapSecond;
+    //*val = ntp_poller.data->ntpLeapSecond;
+    *val = strtod(ntp_poller.data->ntp_sys_data["leap"].c_str(), NULL);
 }
 static void statsNTPStratum(double* val, int)
 {
-    *val = ntp_poller.data->ntpStratum;
+    //*val = ntp_poller.data->ntpStratum;
+    *val = strtod(ntp_poller.data->ntp_sys_data["stratum"].c_str(), NULL);
 }
 static void statsNTPPrecision(double* val, int)
 {
-    *val = ntp_poller.data->ntpPrecision;
+    //*val = ntp_poller.data->ntpPrecision;
+    *val = strtod(ntp_poller.data->ntp_sys_data["precision"].c_str(), NULL);
 }
 static void statsNTPRootDelay(double* val, int)
 {
-    *val = ntp_poller.data->ntpRootDelay;
+    //*val = ntp_poller.data->ntpRootDelay;
+    *val = strtod(ntp_poller.data->ntp_sys_data["rootdelay"].c_str(), NULL);
 }
 static void statsNTPRootDispersion(double* val, int)
 {
-    *val = ntp_poller.data->ntpRootDispersion;
+    //*val = ntp_poller.data->ntpRootDispersion;
+    *val = strtod(ntp_poller.data->ntp_sys_data["rootdisp"].c_str(), NULL);
 }
 static void statsNTPTC(double* val, int)
 {
-    *val = ntp_poller.data->ntpTC;
+    //*val = ntp_poller.data->ntpTC;
+    *val = strtod(ntp_poller.data->ntp_sys_data["tc"].c_str(), NULL);
 }
 static void statsNTPMinTC(double* val, int)
 {
-    *val = ntp_poller.data->ntpMinTC;
+    //*val = ntp_poller.data->ntpMinTC;
+    *val = strtod(ntp_poller.data->ntp_sys_data["mintc"].c_str(), NULL);
 }
 static void statsNTPOffset(double* val, int)
 {
-    *val = ntp_poller.data->ntpOffset;
+    //*val = ntp_poller.data->ntpOffset;
+    *val = strtod(ntp_poller.data->ntp_sys_data["offset"].c_str(), NULL);
 }
 static void statsNTPFrequency(double* val, int)
 {
-    *val = ntp_poller.data->ntpFrequency;
+    //*val = ntp_poller.data->ntpFrequency;
+    *val = strtod(ntp_poller.data->ntp_sys_data["frequency"].c_str(), NULL);
 }
 static void statsNTPSystemJitter(double* val, int)
 {
-    *val = ntp_poller.data->ntpSystemJitter;
+    //*val = ntp_poller.data->ntpSystemJitter;
+    *val = strtod(ntp_poller.data->ntp_sys_data["sys_jitter"].c_str(), NULL);
 }
 static void statsNTPClockJitter(double* val, int)
 {
-    *val = ntp_poller.data->ntpClockJitter;
+    //*val = ntp_poller.data->ntpClockJitter;
+    *val = strtod(ntp_poller.data->ntp_sys_data["clk_jitter"].c_str(), NULL);
 }
 static void statsNTPClockWander(double* val, int)
 {
-    *val = ntp_poller.data->ntpClockWander;
+    //*val = ntp_poller.data->ntpClockWander;
+    *val = strtod(ntp_poller.data->ntp_sys_data["clk_wander"].c_str(), NULL);
 }
 static void statsNTPNumPeers(double* val, int)
 {
@@ -589,6 +599,8 @@ static void statsNTPPeerJitter(double* val, int peer)
     *val = strtod(ntp_poller.data->ntp_peer_data[peer]["jitter"].c_str(), NULL);
 }
 
+// TODO: Work out how to handle these default values. 
+// Maybe create in initial map that has the values.
 /*
 ntpPeerData::ntpPeerData()
     :ntpPeerSelectionStatus(0), ntpPeerStratum(16)
@@ -612,7 +624,7 @@ bool devIocStatsGetNtpStats (ntpStatus *pval)
             errlogPrintf("Failed to get system status\n");
         // continue and try to fetch associations
     } else {
-        parse_ntp_sys_vars(pval, ntp_data);
+        pval->ntp_sys_data = ntp_parse_peer_data(ntp_data);
     }
 
     // Perform an NTP status query to get the association IDs
@@ -683,26 +695,6 @@ void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
                      (unsigned)pval->ntpNumGoodPeers,
                      (unsigned)pval->ntpNumPeers,
                      reference_peer ? "found ref. peer" : "no ref peer");
-}
-
-void parse_ntp_sys_vars(ntpStatus *pval,
-        const std::string &ntp_data)
-{
-    ntp_peer_data_t ntp_peer_data(ntp_parse_peer_data(ntp_data));
-
-    pval->ntpLeapSecond = ntp_peer_as<int>(ntp_peer_data, "leap", -1);
-    pval->ntpStratum = ntp_peer_as<int>(ntp_peer_data, "stratum", 16);
-    pval->ntpPrecision = ntp_peer_as<int>(ntp_peer_data, "precision", 0);
-    pval->ntpRootDelay = ntp_peer_as<double>(ntp_peer_data, "rootdelay", -1);
-    pval->ntpRootDispersion = ntp_peer_as<double>(ntp_peer_data, "rootdisp", -1);
-    pval->ntpRootDelay = ntp_peer_as<double>(ntp_peer_data, "rootdelay", 0);
-    pval->ntpTC = ntp_peer_as<int>(ntp_peer_data, "tc", -1);
-    pval->ntpMinTC = ntp_peer_as<int>(ntp_peer_data, "mintc", -1);
-    pval->ntpOffset = ntp_peer_as<double>(ntp_peer_data, "offset", 0);
-    pval->ntpFrequency = ntp_peer_as<double>(ntp_peer_data, "frequency", -1);
-    pval->ntpSystemJitter = ntp_peer_as<double>(ntp_peer_data, "sys_jitter", -1);
-    pval->ntpClockJitter = ntp_peer_as<double>(ntp_peer_data, "clk_jitter", -1);
-    pval->ntpClockWander = ntp_peer_as<double>(ntp_peer_data, "clk_wander", -1);
 }
 
 namespace {
@@ -811,8 +803,6 @@ bool do_ntp_query(unsigned char op_code,
         }
 
         // Read the response
-
-
         ret = recv(sd, &ntp_message[0], ntp_message.size(), 0);
 
         if (ret < 0) {
@@ -895,7 +885,6 @@ bool get_peer_stats(
                 &ntp_data))
             return false;
 
-        //ntp_peer_data = ntp_parse_peer_data(ntp_data);
         // Get the map of the data from the query
         ntp_peer_data_t ntp_peer_data (ntp_parse_peer_data(ntp_data));
         
@@ -919,43 +908,21 @@ bool get_peer_stats(
         else
             name<<it->second;
 
-        //peer.src = name.str();
         ntp_peer_data["src"] = name.str();
 
-        //peer.ntpPeerStratum = ntp_peer_as<int>(ntp_peer_data, "stratum", 16);
-        //pval->ntpMinPeerStratum = std::min(pval->ntpMinPeerStratum,
-        //peer.ntpPeerStratum);
-
-        //peer.ntpPeerPoll = ntp_peer_as<int>(ntp_peer_data, "ppoll", -1);
-        //peer.ntpPeerReach = ntp_peer_as<int>(ntp_peer_data, "reach", -1);
-
-        //peer.ntpPeerDelay = ntp_peer_as<double>(ntp_peer_data, "delay",
-        //std::numeric_limits<double>::quiet_NaN());
-        //if(fabs(pval->ntpMaxPeerDelay)<fabs(peer.ntpPeerDelay))
-        //pval->ntpMaxPeerDelay = peer.ntpPeerDelay;
         double delay = strtod(ntp_peer_data["delay"].c_str(), NULL);
         if(fabs(pval->ntpMaxPeerDelay)<delay)
             pval->ntpMaxPeerDelay = delay;
 
-        //peer.ntpPeerOffset = ntp_peer_as<double>(ntp_peer_data, "offset",
-        //std::numeric_limits<double>::quiet_NaN());
-        //if(fabs(pval->ntpMaxPeerOffset)<fabs(peer.ntpPeerOffset))
-        //pval->ntpMaxPeerOffset = peer.ntpPeerOffset;
         double offset = strtod(ntp_peer_data["offset"].c_str(), NULL);
         if(fabs(pval->ntpMaxPeerOffset)<fabs(offset))
             pval->ntpMaxPeerOffset = offset;
 
-        //peer.ntpPeerJitter = ntp_peer_as<double>(ntp_peer_data, "jitter",
-        //std::numeric_limits<double>::quiet_NaN());
-        //pval->ntpMaxPeerJitter = std::max(pval->ntpMaxPeerJitter, peer.ntpPeerJitter);
         double jitter = strtod(ntp_peer_data["jitter"].c_str(), NULL);
         pval->ntpMaxPeerJitter = std::max(
                 pval->ntpMaxPeerJitter, jitter);
 
         if(ntp_verb>3)
-            //errlogPrintf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
-            //peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
-            //peer.ntpPeerOffset, peer.ntpPeerJitter);
             errlogPrintf(" Peer %19s statum=%s delay=%s offset=%s jitter=%s\n",
                     ntp_peer_data["src"].c_str(), 
                     ntp_peer_data["stratum"].c_str(), 
