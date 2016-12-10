@@ -1,5 +1,6 @@
 /*************************************************************************\
 * Copyright (c) 2016 Osprey DCS
+* TODO: Change this to the FRIB copyright
 *
 * EPICS BASE Versions 3.13.7
 * and higher are distributed subject to a Software License Agreement found
@@ -13,6 +14,7 @@
  * See RFC1305 Appendix B  "NTP Control Messages"
  */
 /*
+ * TODO: Add Michael to author list
  *	Author: Wayne Lewis
  *	Date:  2016-11-06
  */
@@ -44,7 +46,7 @@
         ntp_peer_selections i - NTP daemon sync status
         ntp_peer_stratum i  - NTP daemon sync status
         ntp_peer_poll i     - NTP daemon sync status
-        ntp_peer_reach i    - NTP daemon sync status
+        ntp_peer_reach i    - NTP eaemon sync status
         ntp_peer_delay i    - NTP daemon sync status
         ntp_peer_offset i   - NTP daemon sync status
         ntp_peer_jitter i   - NTP daemon sync status
@@ -70,6 +72,7 @@
 #include <epicsMath.h>
 #include <epicsExit.h>
 #include <epicsThread.h>
+#include <epicsGuard.h>
 #include <epicsEvent.h>
 #include <dbAccess.h>
 #include <dbStaticLib.h>
@@ -278,10 +281,17 @@ long ntp_monitor_report(int level)
             return 0;
 
         for(size_t i=0; i<data.ntp_peer_data.size(); i++) {
-            ntpPeerData& peer = data.ntp_peer_data[i];
-            printf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
-                   peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
-                   peer.ntpPeerOffset, peer.ntpPeerJitter);
+            //ntpPeerData& peer = data.ntp_peer_data[i];
+            ntp_peer_data_t ntp_peer_data = data.ntp_peer_data[i];
+            //printf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
+                   //peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
+                   //peer.ntpPeerOffset, peer.ntpPeerJitter);
+            printf(" Peer %19s statum=%s delay=%s offset=%s jitter=%s\n",
+                   ntp_peer_data["srcadr"].c_str(), 
+                   ntp_peer_data["stratum"].c_str(), 
+                   ntp_peer_data["delay"].c_str(),
+                   ntp_peer_data["offset"].c_str(), 
+                   ntp_peer_data["jitter"].c_str());
 
         }
 
@@ -457,7 +467,7 @@ static long ntp_read_si(stringinRecord* prec)
 
     if(pvtNTP->peer<0 || (unsigned)pvtNTP->peer < ntp_poller.data->ntp_peer_data.size()) {
         strncpy(prec->val,
-                ntp_poller.data->ntp_peer_data[pvtNTP->peer].src.c_str(),
+                ntp_poller.data->ntp_peer_data[pvtNTP->peer]["src"].c_str(),
                 sizeof(prec->val));
         prec->val[sizeof(prec->val)-1] = '\0';
     } else {
@@ -544,33 +554,41 @@ static void statsNTPMinPeerStratum(double* val, int)
 }
 static void statsNTPPeerSelection(double* val, int peer)
 {
-    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerSelectionStatus;
+    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerSelectionStatus;
+    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["selection"].c_str(), NULL);
 }
 static void statsNTPPeerStratum(double* val, int peer)
 {
-    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerStratum;
+    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerStratum;
+    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["stratum"].c_str(), NULL);
 }
 static void statsNTPPeerPoll(double* val, int peer)
 {
-    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerPoll;
+    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerPoll;
+    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["ppoll"].c_str(), NULL);
 }
 static void statsNTPPeerReach(double* val, int peer)
 {
-    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerReach;
+    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerReach;
+    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["reach"].c_str(), NULL);
 }
 static void statsNTPPeerDelay(double* val, int peer)
 {
-    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerDelay;
+    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerDelay;
+    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["delay"].c_str(), NULL);
 }
 static void statsNTPPeerOffset(double* val, int peer)
 {
-    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerOffset;
+    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerOffset;
+    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["offset"].c_str(), NULL);
 }
 static void statsNTPPeerJitter(double* val, int peer)
 {
-    *val = ntp_poller.data->ntp_peer_data[peer].ntpPeerJitter;
+    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerJitter;
+    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["jitter"].c_str(), NULL);
 }
 
+/*
 ntpPeerData::ntpPeerData()
     :ntpPeerSelectionStatus(0), ntpPeerStratum(16)
     ,ntpPeerPoll(-1), ntpPeerReach(-1)
@@ -578,6 +596,7 @@ ntpPeerData::ntpPeerData()
     ,ntpPeerOffset(ntpPeerDelay)
     ,ntpPeerJitter(ntpPeerDelay)
 {}
+*/
 
 bool devIocStatsGetNtpStats (ntpStatus *pval)
 {
@@ -642,7 +661,7 @@ void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
         if (peer_selections[i] >= NTP_PEER_SEL_SYSPEER)
             reference_peer = TRUE;
 
-        pval->ntp_peer_data[i].ntpPeerSelectionStatus = peer_selections[i];
+        pval->ntp_peer_data[i]["selection"] = peer_selections[i];
     }
 
     pval->ntpNumGoodPeers = num_good_peers;
@@ -852,7 +871,6 @@ bool get_peer_stats(
 
     assert(pval->ntp_peer_data.size()==association_ids.size());
 
-    ntp_peer_data_t ntp_peer_data;
 
     pval->ntpMaxPeerDelay = 0.0;
     pval->ntpMaxPeerOffset = 0.0;
@@ -862,7 +880,8 @@ bool get_peer_stats(
     // Iterate through the associated peers and gather the required data
     for (unsigned i = 0; i < association_ids.size(); i++)
     {
-        ntpPeerData& peer = pval->ntp_peer_data[i];
+        //ntpPeerData& peer = pval->ntp_peer_data[i];
+        //ntp_peer_data_t ntp_peer_data = pval->ntp_peer_data[i];
 
         if(!do_ntp_query(
                 NTP_OP_READ_STS, 
@@ -870,57 +889,82 @@ bool get_peer_stats(
                 &ntp_data))
             return false;
 
-        ntp_peer_data = ntp_parse_peer_data(ntp_data);
-        {
-            ntp_peer_data_t::const_iterator it;
+        //ntp_peer_data = ntp_parse_peer_data(ntp_data);
+        // Get the map of the data from the query
+        ntp_peer_data_t ntp_peer_data (ntp_parse_peer_data(ntp_data));
+        
+        // Store it into the overall data structure
+        pval->ntp_peer_data[i] = ntp_peer_data;
 
-            std::ostringstream name;
-            it = ntp_peer_data.find("srcadr");
-            if(it==ntp_peer_data.end())
-                name<<"<unknown>";
-            else
-                name<<it->second;
-            name<<":";
-            it = ntp_peer_data.find("srcport");
-            if(it==ntp_peer_data.end())
-                name<<"<unknown>";
-            else
-                name<<it->second;
+        for (ntp_peer_data_t::const_iterator it = ntp_peer_data.begin(); 
+                it != ntp_peer_data.end();
+                it++)
+            std::cout << it-> first << ":" << it->second << std::endl;
 
-            peer.src = name.str();
+        ntp_peer_data_t::const_iterator it;
 
-            peer.ntpPeerStratum = ntp_peer_as<int>(ntp_peer_data, "stratum", 16);
-            pval->ntpMinPeerStratum = std::min(pval->ntpMinPeerStratum,
-                                               peer.ntpPeerStratum);
+        std::ostringstream name;
+        it = ntp_peer_data.find("srcadr");
+        if(it==ntp_peer_data.end())
+            name<<"<unknown>";
+        else
+            name<<it->second;
+        name<<":";
+        it = ntp_peer_data.find("srcport");
+        if(it==ntp_peer_data.end())
+            name<<"<unknown>";
+        else
+            name<<it->second;
 
-            peer.ntpPeerPoll = ntp_peer_as<int>(ntp_peer_data, "ppoll", -1);
-            peer.ntpPeerReach = ntp_peer_as<int>(ntp_peer_data, "reach", -1);
+        //peer.src = name.str();
+        ntp_peer_data["src"] = name.str();
 
-            peer.ntpPeerDelay = ntp_peer_as<double>(ntp_peer_data, "delay",
-                                                 std::numeric_limits<double>::quiet_NaN());
-            if(fabs(pval->ntpMaxPeerDelay)<fabs(peer.ntpPeerDelay))
-                pval->ntpMaxPeerDelay = peer.ntpPeerDelay;
+        //peer.ntpPeerStratum = ntp_peer_as<int>(ntp_peer_data, "stratum", 16);
+        //pval->ntpMinPeerStratum = std::min(pval->ntpMinPeerStratum,
+        //peer.ntpPeerStratum);
 
-            peer.ntpPeerOffset = ntp_peer_as<double>(ntp_peer_data, "offset",
-                                                  std::numeric_limits<double>::quiet_NaN());
-            if(fabs(pval->ntpMaxPeerOffset)<fabs(peer.ntpPeerOffset))
-                pval->ntpMaxPeerOffset = peer.ntpPeerOffset;
+        //peer.ntpPeerPoll = ntp_peer_as<int>(ntp_peer_data, "ppoll", -1);
+        //peer.ntpPeerReach = ntp_peer_as<int>(ntp_peer_data, "reach", -1);
 
-            peer.ntpPeerJitter = ntp_peer_as<double>(ntp_peer_data, "jitter",
-                                                  std::numeric_limits<double>::quiet_NaN());
-            pval->ntpMaxPeerJitter = std::max(pval->ntpMaxPeerJitter, peer.ntpPeerJitter);
+        //peer.ntpPeerDelay = ntp_peer_as<double>(ntp_peer_data, "delay",
+        //std::numeric_limits<double>::quiet_NaN());
+        //if(fabs(pval->ntpMaxPeerDelay)<fabs(peer.ntpPeerDelay))
+        //pval->ntpMaxPeerDelay = peer.ntpPeerDelay;
+        double delay = strtod(ntp_peer_data["delay"].c_str(), NULL);
+        if(fabs(pval->ntpMaxPeerDelay)<delay)
+            pval->ntpMaxPeerDelay = delay;
 
-            if(ntp_verb>3)
-                errlogPrintf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
-                             peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
-                             peer.ntpPeerOffset, peer.ntpPeerJitter);
-        }
+        //peer.ntpPeerOffset = ntp_peer_as<double>(ntp_peer_data, "offset",
+        //std::numeric_limits<double>::quiet_NaN());
+        //if(fabs(pval->ntpMaxPeerOffset)<fabs(peer.ntpPeerOffset))
+        //pval->ntpMaxPeerOffset = peer.ntpPeerOffset;
+        double offset = strtod(ntp_peer_data["offset"].c_str(), NULL);
+        if(fabs(pval->ntpMaxPeerOffset)<fabs(offset))
+            pval->ntpMaxPeerOffset = offset;
+
+        //peer.ntpPeerJitter = ntp_peer_as<double>(ntp_peer_data, "jitter",
+        //std::numeric_limits<double>::quiet_NaN());
+        //pval->ntpMaxPeerJitter = std::max(pval->ntpMaxPeerJitter, peer.ntpPeerJitter);
+        double jitter = strtod(ntp_peer_data["jitter"].c_str(), NULL);
+        pval->ntpMaxPeerJitter = std::max(
+                pval->ntpMaxPeerJitter, jitter);
+
+        if(ntp_verb>3)
+            //errlogPrintf(" Peer %19s statum=%d delay=%f offset=%f jitter=%f\n",
+            //peer.src.c_str(), peer.ntpPeerStratum, peer.ntpPeerDelay,
+            //peer.ntpPeerOffset, peer.ntpPeerJitter);
+            errlogPrintf(" Peer %19s statum=%s delay=%s offset=%s jitter=%s\n",
+                    ntp_peer_data["src"].c_str(), 
+                    ntp_peer_data["stratum"].c_str(), 
+                    ntp_peer_data["delay"].c_str(),
+                    ntp_peer_data["offset"].c_str(), 
+                    ntp_peer_data["jitter"].c_str());
     }
 
     if(ntp_verb>2)
         errlogPrintf(" Min Ref. Stratum: %d\n Max delay: %f\n Max Offset: %f\n Max Jitter: %f\n",
-               pval->ntpMinPeerStratum, pval->ntpMaxPeerDelay,
-               pval->ntpMaxPeerOffset, pval->ntpMaxPeerJitter);
+                pval->ntpMinPeerStratum, pval->ntpMaxPeerDelay,
+                pval->ntpMaxPeerOffset, pval->ntpMaxPeerJitter);
 
     return true;
 }
@@ -976,8 +1020,8 @@ bool find_substring(const std::string &data,
 
 
 bool get_association_ids(std::vector<unsigned short>& association_ids,
-                         std::vector<unsigned short>& peer_selections
-                         )
+        std::vector<unsigned short>& peer_selections
+        )
 {
     unsigned int i;
     std::string ntp_data;
@@ -986,9 +1030,9 @@ bool get_association_ids(std::vector<unsigned short>& association_ids,
     //
     // Send a system level read status query
     if(!do_ntp_query(
-            NTP_OP_READ_STS, 
-            NTP_SYS_ASSOCIATION_ID, 
-            &ntp_data))
+                NTP_OP_READ_STS, 
+                NTP_SYS_ASSOCIATION_ID, 
+                &ntp_data))
         return false;
 
     // Extract the association IDs from the response

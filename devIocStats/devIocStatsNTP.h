@@ -19,6 +19,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 #include <epicsTime.h>
 
@@ -52,7 +53,10 @@ struct aStatsNTP
 };
 typedef struct aStatsNTP aStatsNTP;
 
+typedef std::map<std::string, std::string> ntp_peer_data_t;
+
 // Data containing structures
+/*
 struct ntpPeerData {
         std::string src;
         int ntpPeerSelectionStatus;
@@ -64,6 +68,7 @@ struct ntpPeerData {
         double ntpPeerJitter;
         ntpPeerData();
 };
+*/
 
 struct ntpStatus {
         epicsTime updateTime;
@@ -87,7 +92,8 @@ struct ntpStatus {
         double ntpMaxPeerJitter;
         int ntpMinPeerStratum;
         int ntpSyncStatus;
-        std::vector<ntpPeerData> ntp_peer_data;
+        std::vector<ntp_peer_data_t> ntp_peer_data;
+        //std::vector<ntpPeerData> ntp_peer_data;
         ntpStatus() :ntpDaemonOk(false), ntpStratum(16) {}
 };
 
