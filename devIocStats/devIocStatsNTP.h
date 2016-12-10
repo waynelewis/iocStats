@@ -152,8 +152,8 @@ bool devIocStatsGetNtpStats(ntpStatus *pval);
 #define ERROR_SHIFT                 6
 #define RESPONSE_MASK               0x80
 #define RESPONSE_SHIFT              7
-#define PEER_SEL_MASK               0x07
-#define PEER_SEL_SHIFT              0
+#define PEER_SEL_MASK               0x0700
+#define PEER_SEL_SHIFT              8
 
 #define DATA_SIZE 468
 #define AUTH_SIZE 96

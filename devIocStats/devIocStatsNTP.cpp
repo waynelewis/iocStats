@@ -57,6 +57,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <sstream>
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
@@ -626,6 +627,8 @@ bool devIocStatsGetNtpStats (ntpStatus *pval)
     if(ntp_verb>1)
         errlogPrintf(" Found %u associations\n", (unsigned)association_ids.size());
 
+    // Clear the existing vector elements and resize
+    pval->ntp_peer_data.resize(0);
     pval->ntp_peer_data.resize(association_ids.size());
 
     parse_ntp_associations(
@@ -661,7 +664,10 @@ void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
         if (peer_selections[i] >= NTP_PEER_SEL_SYSPEER)
             reference_peer = TRUE;
 
-        pval->ntp_peer_data[i]["selection"] = peer_selections[i];
+        std::ostringstream s;
+        s << peer_selections[i];
+        pval->ntp_peer_data[i]["selection"] = s.str();
+
     }
 
     pval->ntpNumGoodPeers = num_good_peers;
@@ -893,13 +899,10 @@ bool get_peer_stats(
         // Get the map of the data from the query
         ntp_peer_data_t ntp_peer_data (ntp_parse_peer_data(ntp_data));
         
-        // Store it into the overall data structure
-        pval->ntp_peer_data[i] = ntp_peer_data;
-
-        for (ntp_peer_data_t::const_iterator it = ntp_peer_data.begin(); 
-                it != ntp_peer_data.end();
-                it++)
-            std::cout << it-> first << ":" << it->second << std::endl;
+        // Append additional peer info to the existing data 
+        pval->ntp_peer_data[i].insert(
+                ntp_peer_data.begin(), 
+                ntp_peer_data.end());
 
         ntp_peer_data_t::const_iterator it;
 
