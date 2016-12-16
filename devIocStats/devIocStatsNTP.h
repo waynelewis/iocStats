@@ -19,6 +19,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <map>
 
 #include <epicsTime.h>
@@ -28,18 +29,11 @@ using std::string;
 // Record interface structures 
 struct pvtNTPArea
 {
-    unsigned index;
+    //unsigned index;
+    std::auto_ptr<string> parameter;
     int peer; // -1 for data not associated with a peer
 };
 typedef struct pvtNTPArea pvtNTPArea;
-
-typedef void (*statNTPGetFunc)(double*, int);
-
-struct validNTPGetParms
-{
-    string name;
-    statNTPGetFunc func;
-};
 
 struct aStatsNTP
 {
@@ -121,6 +115,9 @@ bool devIocStatsGetNtpStats(ntpStatus *pval);
 #define NTP_DAEMON_OK               0
 #define NTP_DAEMON_ERROR            -1
 
+#define NTP_PARAMETER_OK            0
+#define NTP_PARAMETER_ERROR         -1
+
 #define VER_MASK                    0x38
 #define VER_SHIFT                   2
 #define MODE_MASK                   0x07
@@ -158,16 +155,10 @@ struct ntp_control {
 
 // Function prototypes
 
-bool find_substring(
-        const string& data,
-        const string& pattern,
-        string *result);
-
-bool find_substring(
-        const string& data,
-        const string& pattern,
-        int occurrence,
-        string *result);
+int ntp_get_ai_value(
+        double *val,
+        const string& parameter,
+        const int peer);
 
 bool do_ntp_query(
         unsigned char op_code, 

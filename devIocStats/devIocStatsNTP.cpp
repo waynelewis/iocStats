@@ -21,37 +21,22 @@
 
 /*
 	--------------------------------------------------------------------
-	Note that the valid values for the parm field of the link
-	information are:
+	Note that the values for the parm field of the link must match the
+    response from the NTP daemon.
 
-    TODO: Change these to use the standard NTP daemon names.
-	ai (DTYP="IOC stats NTP"):
-        ntp_leap_second     - NTP leap second status
-        ntp_stratum         - NTP server stratum
-        ntp_precision       - NTP precision
-        ntp_root_delay      - NTP root delay
-        ntp_root_dispersion - NTP root dispersion
-        ntp_tc              - NTP time constant
-        ntp_min_tc          - NTP minimum time constant
-        ntp_offset          - NTP offset
-        ntp_frequency       - NTP frequency
-        ntp_system_jitter   - NTP system jitter
-        ntp_clock_jitter    - NTP clock jitter
-        ntp_clock_wander    - NTP clock wander
-        ntp_num_peers       - NTP number of potential peers 
-        ntp_num_good_peers  - NTP number of candidate peers
-        ntp_max_peer_offset - NTP maximum peer offset
-        ntp_max_peer_jitter - NTP maximum peer jitter
-        ntp_min_peer_stratum- NTP minimum peer jitter
-        ntp_sync_status     - NTP daemon sync status
-        ntp_peer_selections i - NTP daemon sync status
-        ntp_peer_stratum i  - NTP daemon sync status
-        ntp_peer_poll i     - NTP daemon sync status
-        ntp_peer_reach i    - NTP eaemon sync status
-        ntp_peer_delay i    - NTP daemon sync status
-        ntp_peer_offset i   - NTP daemon sync status
-        ntp_peer_jitter i   - NTP daemon sync status
-        */
+    Values associated with a peer must have the peer number following the
+    parameter, separated by a space.
+
+    Other custom values that are valid are:
+    ntp_max_peer_jitter
+    ntp_max_peer_offset
+    ntp_min_peer_stratum
+    ntp_num_good_peers
+    ntp_num_peers
+    ntp_sync_status
+    ntp_peer_selection i
+
+    */
 
 
 #include <string>
@@ -104,60 +89,6 @@ static long ntp_read_ai(aiRecord*);
 static long ntp_read_si(stringinRecord*);
 static long ntp_ioint_info(int cmd, dbCommon *pr, IOSCANPVT* iopvt);
 
-static void statsNTPLeapSecond(double *, int peer=-1);
-static void statsNTPStratum(double *, int peer=-1);
-static void statsNTPPrecision(double *, int peer=-1);
-static void statsNTPRootDelay(double *, int peer=-1);
-static void statsNTPRootDispersion(double *, int peer=-1);
-static void statsNTPTC(double *, int peer=-1);
-static void statsNTPMinTC(double *, int peer=-1);
-static void statsNTPOffset(double *, int peer=-1);
-static void statsNTPFrequency(double *, int peer=-1);
-static void statsNTPSystemJitter(double *, int peer=-1);
-static void statsNTPClockJitter(double *, int peer=-1);
-static void statsNTPClockWander(double *, int peer=-1);
-static void statsNTPNumPeers(double *, int peer=-1);
-static void statsNTPNumGoodPeers(double *, int peer=-1);
-static void statsNTPMaxPeerOffset(double *, int peer=-1);
-static void statsNTPMaxPeerJitter (double *, int peer=-1);
-static void statsNTPMinPeerStratum(double *, int peer=-1);
-static void statsNTPPeerSelection(double *, int);
-static void statsNTPPeerStratum(double *, int);
-static void statsNTPPeerPoll(double *, int);
-static void statsNTPPeerReach(double *, int);
-static void statsNTPPeerDelay(double *, int);
-static void statsNTPPeerOffset(double *, int);
-static void statsNTPPeerJitter(double *, int);
-
-static validNTPGetParms statsGetNTPParms[]={
-    //TODO: Get rid of different functions that extract data from maps
-    { "ntp_leap_second",    statsNTPLeapSecond },
-    { "ntp_stratum",        statsNTPStratum },
-    { "ntp_precision",      statsNTPPrecision },
-    { "ntp_root_delay",     statsNTPRootDelay },
-    { "ntp_root_dispersion",statsNTPRootDispersion },
-    { "ntp_tc",             statsNTPTC },
-    { "ntp_min_tc",         statsNTPMinTC },
-    { "ntp_offset",         statsNTPOffset },
-    { "ntp_frequency",      statsNTPFrequency },
-    { "ntp_system_jitter",  statsNTPSystemJitter },
-    { "ntp_clock_jitter",   statsNTPClockJitter },
-    { "ntp_clock_wander",   statsNTPClockWander },
-    { "ntp_num_peers",      statsNTPNumPeers },
-    { "ntp_num_good_peers", statsNTPNumGoodPeers },
-    { "ntp_max_peer_offset",statsNTPMaxPeerOffset },
-    { "ntp_max_peer_jitter",statsNTPMaxPeerJitter },
-    { "ntp_min_peer_stratum",statsNTPMinPeerStratum },
-    { "ntp_peer_selection", statsNTPPeerSelection },
-    { "ntp_peer_stratum",   statsNTPPeerStratum },
-    { "ntp_peer_poll",      statsNTPPeerPoll },
-    { "ntp_peer_reach",     statsNTPPeerReach },
-    { "ntp_peer_delay",     statsNTPPeerDelay },
-    { "ntp_peer_offset",    statsNTPPeerOffset },
-    { "ntp_peer_jitter",    statsNTPPeerJitter },
-	{ "",NULL }
-};
-
 aStatsNTP devNTPStats={ 
     6,
     NULL,
@@ -177,7 +108,6 @@ aStatsNTP devNTPStatsName={
     (DEVSUPFUN)ntp_read_si,
     NULL };
 epicsExportAddress(dset,devNTPStatsName);
-
 
 // Default the daemon poll rate to 20 seconds
 volatile int ntp_daemon_poll_rate = 20;
@@ -363,12 +293,12 @@ static long ntp_init(int pass)
 
 static long ntp_init_record(dbCommon *prec)
 {
-    int		i;
+    //int		i;
     std::string	parm;
-    std::string  parameter;
+    std::auto_ptr<std::string> parameter (new std::string);
     size_t  index;
     int     peer;
-    pvtNTPArea	*pvtNTP = NULL;
+    pvtNTPArea* pvtNTP;
 
     DBLINK *plink = devIocStatsGetDevLink(prec);
 
@@ -381,8 +311,8 @@ static long ntp_init_record(dbCommon *prec)
     }
 
     parm = plink->value.instio.string;
-    for(i=0; pvtNTP==NULL; i++)
-    {
+    //for(i=0; pvtNTP==NULL; i++)
+    //{
         // Test if there is a space in the INP string.
         // If there is, then the peer number will follow.
         index = parm.find(" ");
@@ -390,24 +320,24 @@ static long ntp_init_record(dbCommon *prec)
         if (index == std::string::npos)
         {
             // System variable
-            parameter = parm;
+            *parameter = parm;
             peer = -1;
         }
         else
         {
             // Peer variable
-            parameter = parm.substr(0, index);
+            *parameter = parm.substr(0, index);
             peer = (int)strtoul(parm.substr(index+1).c_str(), NULL, 10);
         }
 
         // Find the correct function in the list
-        if(parameter.compare(statsGetNTPParms[i].name)==0)
-        {
+        //{
             pvtNTP=(pvtNTPArea*)malloc(sizeof(pvtNTPArea));
-            pvtNTP->index=i;
+            //pvtNTP = new (pvtNTPArea);
+            pvtNTP->parameter = parameter;
             pvtNTP->peer = peer;
-        }
-    }
+        //}
+    //}
 
     if(pvtNTP==NULL)
     {
@@ -443,9 +373,15 @@ static long ntp_read_ai(aiRecord* prec)
 
     if(pvtNTP->peer<0 || (unsigned)pvtNTP->peer < ntp_poller.data->ntp_peer_data.size()) {
         double val;
-        statsGetNTPParms[pvtNTP->index].func(&val,pvtNTP->peer);
-        prec->val = val;
-    } else {
+        if (ntp_get_ai_value(&val, *(pvtNTP->parameter).get(), pvtNTP->peer) == NTP_PARAMETER_OK) {
+            prec->val = val;
+        }
+        else  {
+            recGblRecordError(S_db_badField,(void*)prec,
+                    "devAiNTPStats (ntp_read_ai) Unknown parameter");
+        }
+    } 
+    else {
         (void)recGblSetSevr(prec, READ_ALARM, INVALID_ALARM);
     }
 
@@ -485,121 +421,32 @@ static long ntp_read_si(stringinRecord* prec)
 /* -------------------------------------------------------------------- */
 // ntp_poller.lock mutex must be locked when the following are called
 
-//TODO: Create single function that reads all map data
-static void statsNTPLeapSecond(double* val, int)
+int ntp_get_ai_value(
+        double *val, 
+        const string& parameter, 
+        const int peer)
 {
-    //*val = ntp_poller.data->ntpLeapSecond;
-    *val = strtod(ntp_poller.data->ntp_sys_data["leap"].c_str(), NULL);
-}
-static void statsNTPStratum(double* val, int)
-{
-    //*val = ntp_poller.data->ntpStratum;
-    *val = strtod(ntp_poller.data->ntp_sys_data["stratum"].c_str(), NULL);
-}
-static void statsNTPPrecision(double* val, int)
-{
-    //*val = ntp_poller.data->ntpPrecision;
-    *val = strtod(ntp_poller.data->ntp_sys_data["precision"].c_str(), NULL);
-}
-static void statsNTPRootDelay(double* val, int)
-{
-    //*val = ntp_poller.data->ntpRootDelay;
-    *val = strtod(ntp_poller.data->ntp_sys_data["rootdelay"].c_str(), NULL);
-}
-static void statsNTPRootDispersion(double* val, int)
-{
-    //*val = ntp_poller.data->ntpRootDispersion;
-    *val = strtod(ntp_poller.data->ntp_sys_data["rootdisp"].c_str(), NULL);
-}
-static void statsNTPTC(double* val, int)
-{
-    //*val = ntp_poller.data->ntpTC;
-    *val = strtod(ntp_poller.data->ntp_sys_data["tc"].c_str(), NULL);
-}
-static void statsNTPMinTC(double* val, int)
-{
-    //*val = ntp_poller.data->ntpMinTC;
-    *val = strtod(ntp_poller.data->ntp_sys_data["mintc"].c_str(), NULL);
-}
-static void statsNTPOffset(double* val, int)
-{
-    //*val = ntp_poller.data->ntpOffset;
-    *val = strtod(ntp_poller.data->ntp_sys_data["offset"].c_str(), NULL);
-}
-static void statsNTPFrequency(double* val, int)
-{
-    //*val = ntp_poller.data->ntpFrequency;
-    *val = strtod(ntp_poller.data->ntp_sys_data["frequency"].c_str(), NULL);
-}
-static void statsNTPSystemJitter(double* val, int)
-{
-    //*val = ntp_poller.data->ntpSystemJitter;
-    *val = strtod(ntp_poller.data->ntp_sys_data["sys_jitter"].c_str(), NULL);
-}
-static void statsNTPClockJitter(double* val, int)
-{
-    //*val = ntp_poller.data->ntpClockJitter;
-    *val = strtod(ntp_poller.data->ntp_sys_data["clk_jitter"].c_str(), NULL);
-}
-static void statsNTPClockWander(double* val, int)
-{
-    //*val = ntp_poller.data->ntpClockWander;
-    *val = strtod(ntp_poller.data->ntp_sys_data["clk_wander"].c_str(), NULL);
-}
-static void statsNTPNumPeers(double* val, int)
-{
-    *val = ntp_poller.data->ntpNumPeers;
-}
-static void statsNTPNumGoodPeers(double* val, int)
-{
-    *val = ntp_poller.data->ntpNumGoodPeers;
-}
-static void statsNTPMaxPeerOffset(double* val, int)
-{
-    *val = ntp_poller.data->ntpMaxPeerOffset;
-}
-static void statsNTPMaxPeerJitter(double* val, int)
-{
-    *val = ntp_poller.data->ntpMaxPeerJitter;
-}
-static void statsNTPMinPeerStratum(double* val, int)
-{
-    *val = ntp_poller.data->ntpMinPeerStratum;
-}
-static void statsNTPPeerSelection(double* val, int peer)
-{
-    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerSelectionStatus;
-    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["selection"].c_str(), NULL);
-}
-static void statsNTPPeerStratum(double* val, int peer)
-{
-    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerStratum;
-    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["stratum"].c_str(), NULL);
-}
-static void statsNTPPeerPoll(double* val, int peer)
-{
-    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerPoll;
-    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["ppoll"].c_str(), NULL);
-}
-static void statsNTPPeerReach(double* val, int peer)
-{
-    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerReach;
-    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["reach"].c_str(), NULL);
-}
-static void statsNTPPeerDelay(double* val, int peer)
-{
-    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerDelay;
-    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["delay"].c_str(), NULL);
-}
-static void statsNTPPeerOffset(double* val, int peer)
-{
-    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerOffset;
-    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["offset"].c_str(), NULL);
-}
-static void statsNTPPeerJitter(double* val, int peer)
-{
-    //*val = ntp_poller.data->ntp_peer_data[peer].ntpPeerJitter;
-    *val = strtod(ntp_poller.data->ntp_peer_data[peer]["jitter"].c_str(), NULL);
+    if (peer < 0) {
+        // System variable
+        // Test if the parameter exists
+        if (ntp_poller.data->ntp_sys_data.find(parameter) !=
+                ntp_poller.data->ntp_sys_data.end()) {
+            *val = strtod(ntp_poller.data->ntp_sys_data[parameter].c_str(), NULL);
+            return NTP_PARAMETER_OK;
+        }
+        else
+            return NTP_PARAMETER_ERROR;
+    }
+    else {
+        // Peer variable
+        if (ntp_poller.data->ntp_peer_data[peer].find(parameter) !=
+                ntp_poller.data->ntp_peer_data[peer].end()) {
+            *val = strtod(ntp_poller.data->ntp_peer_data[peer][parameter].c_str(), NULL);
+            return NTP_PARAMETER_OK;
+        }
+        else
+            return NTP_PARAMETER_ERROR;
+    }
 }
 
 // TODO: Work out how to handle these default values. 
@@ -941,56 +788,6 @@ bool get_peer_stats(
 
     return true;
 }
-
-bool find_substring(const std::string &data,
-        const std::string &pattern,
-        std::string *value)
-{
-    // Call to this version of the function will give the first instance of the
-    // search string.
-
-    return find_substring(data, pattern, 1, value);
-}
-
-bool find_substring(const std::string &data,
-        const std::string &pattern,
-        int occurrence,
-        std::string *value)
-{
-    // General version of the substring function, with an option to find a
-    // specific occurrence of the search patttern.
-
-    size_t found;
-    size_t start;
-    size_t separator;
-    size_t length;
-    bool result = FALSE;
-
-    int num_found = 0;
-    start = 0;
-
-    const std::string SEPARATOR (",");
-
-    // Search for the required occurrence number
-    while (num_found < occurrence)
-    {
-        found = data.find(pattern, start);
-        num_found++;
-        if (found != std::string::npos)
-            start = found + pattern.length();
-    }
-
-    // Extract the remaining string up until the next separator
-    if (found != std::string::npos)
-    {
-        separator = data.find(SEPARATOR, found);
-        length = separator - start;
-        *value = data.substr(start, length);
-        result = TRUE;
-    }
-    return result;
-}
-
 
 bool get_association_ids(std::vector<unsigned short>& association_ids,
         std::vector<unsigned short>& peer_selections

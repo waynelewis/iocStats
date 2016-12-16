@@ -48,7 +48,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_STRATUM") {
   field(HIHI, "16")
   field(HHSV, "MAJOR")
 	field(PREC, "0")
-  field(INP,  "@ntp_peer_stratum $(PEER)")
+  field(INP,  "@stratum $(PEER)")
 }
 
 # Peer poll rate
@@ -57,7 +57,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_POLL_") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@ntp_peer_poll $(PEER)")
+  field(INP,  "@poll $(PEER)")
   field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_POLL PP")
 }
 
@@ -74,7 +74,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_REACH") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@ntp_peer_reach $(PEER)")
+  field(INP,  "@reach $(PEER)")
 }
 
 # Peer delay
@@ -84,7 +84,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_DELAY") {
   field(DTYP, "IOC NTP stats")
   field(EGU , "ms")
 	field(PREC, "3")
-  field(INP,  "@ntp_peer_delay $(PEER)")
+  field(INP,  "@delay $(PEER)")
 }
 
 # Peer offset
@@ -94,7 +94,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_OFFSET") {
   field(DTYP, "IOC NTP stats")
   field(EGU , "ms")
 	field(PREC, "3")
-  field(INP,  "@ntp_peer_offset $(PEER)")
+  field(INP,  "@offset $(PEER)")
 }
 
 # Peer jitter
@@ -104,5 +104,5 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_JITTER") {
   field(DTYP, "IOC NTP stats")
   field(EGU , "ms")
 	field(PREC, "3")
-  field(INP,  "@ntp_peer_jitter $(PEER)")
+  field(INP,  "@jitter $(PEER)")
 }

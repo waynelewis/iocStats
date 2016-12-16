@@ -15,7 +15,7 @@ record(ai, "$(IOCNAME):NTP_STRATUM") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@ntp_stratum")
+  field(INP,  "@stratum")
   field(LOW, "0")
   field(LSV, "INVALID")
 	field(HIGH, "10")
@@ -31,7 +31,7 @@ record(ai, "$(IOCNAME):NTP_PRECISION") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@ntp_precision")
+  field(INP,  "@precision")
 }
 
 # NTP root delay 
@@ -41,7 +41,7 @@ record(ai, "$(IOCNAME):NTP_ROOT_DELAY") {
 	field(EGU,  "ms")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "3")
-  field(INP,  "@ntp_root_delay")
+  field(INP,  "@rootdelay")
 }
 
 # NTP root dispersion
@@ -51,7 +51,7 @@ record(ai, "$(IOCNAME):NTP_ROOT_DISP") {
 	field(EGU,  "ms")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "3")
-  field(INP,  "@ntp_root_dispersion")
+  field(INP,  "@rootdisp")
 }
 
 # NTP time constant
@@ -60,7 +60,7 @@ record(ai, "$(IOCNAME):NTP_TC") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@ntp_tc")
+  field(INP,  "@tc")
 }
 
 # NTP minimum time constant
@@ -69,7 +69,7 @@ record(ai, "$(IOCNAME):NTP_MIN_TC") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@ntp_min_tc")
+  field(INP,  "@mintc")
 }
 
 # NTP offset
@@ -79,7 +79,7 @@ record(ai, "$(IOCNAME):NTP_OFFSET") {
 	field(EGU,  "ms")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "3")
-  field(INP,  "@ntp_offset")
+  field(INP,  "@offset")
 }
 
 # NTP frequency
@@ -88,7 +88,7 @@ record(ai, "$(IOCNAME):NTP_FREQUENCY") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "3")
-  field(INP,  "@ntp_frequency")
+  field(INP,  "@frequency")
 }
 
 # NTP system jitter
@@ -98,7 +98,7 @@ record(ai, "$(IOCNAME):NTP_SYS_JITTER") {
 	field(EGU,  "ms")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "3")
-  field(INP,  "@ntp_system_jitter")
+  field(INP,  "@sys_jitter")
 }
 
 # NTP clock jitter
@@ -108,7 +108,7 @@ record(ai, "$(IOCNAME):NTP_CLK_JITTER") {
 	field(EGU,  "ms")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "3")
-  field(INP,  "@ntp_clock_jitter")
+  field(INP,  "@clk_jitter")
 }
 
 # NTP clock wander
@@ -118,7 +118,7 @@ record(ai, "$(IOCNAME):NTP_CLK_WANDER") {
 	field(EGU,  "ms")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "3")
-  field(INP,  "@ntp_clock_wander")
+  field(INP,  "@clk_wander")
 }
 
 # NTP total number of peers
