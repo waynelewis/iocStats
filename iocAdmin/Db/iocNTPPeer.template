@@ -57,7 +57,7 @@ record(ai, "$(IOCNAME):NTP_PEER_$(PEER)_POLL_") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@poll $(PEER)")
+  field(INP,  "@ppoll $(PEER)")
   field(FLNK, "$(IOCNAME):NTP_PEER_$(PEER)_POLL PP")
 }
 

@@ -6,7 +6,7 @@ record(ai, "$(IOCNAME):NTP_LEAP_SEC") {
   field(SCAN, "I/O Intr")
   field(DTYP, "IOC NTP stats")
 	field(PREC, "0")
-  field(INP,  "@ntp_leap_second")
+  field(INP,  "@leap")
 }
 
 # NTP stratum

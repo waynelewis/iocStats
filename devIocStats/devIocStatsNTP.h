@@ -58,12 +58,6 @@ typedef std::map<std::string, std::string> ntp_sys_data_t;
 struct ntpStatus {
         epicsTime updateTime;
         bool ntpDaemonOk;
-        int ntpNumPeers;
-        int ntpNumGoodPeers;
-        double ntpMaxPeerDelay;
-        double ntpMaxPeerOffset;
-        double ntpMaxPeerJitter;
-        int ntpMinPeerStratum;
         int ntpSyncStatus;
         std::vector<ntp_peer_data_t> ntp_peer_data;
         // TODO: Work out method of creating default value
@@ -74,7 +68,6 @@ struct ntpStatus {
 
 
 /* NTP status functions */
-//extern int devIocStatsInitNtpStats (void);
 bool devIocStatsGetNtpStats(ntpStatus *pval);
 
 #define NTP_PORT    123
@@ -135,23 +128,6 @@ bool devIocStatsGetNtpStats(ntpStatus *pval);
 
 #define DATA_SIZE 468
 #define AUTH_SIZE 96
-
-struct ntp_control {
-	unsigned char ver_mode;		    /* leap, version, mode */
-	unsigned char op_code;		    /* response, more, error, opcode */
-	unsigned char sequence0;		/* sequence number of request */
-	unsigned char sequence1;		/* sequence number of request */
-	unsigned char status0;			/* status word for association */
-	unsigned char status1;			/* status word for association */
-	unsigned char association_id0;	/* association ID */
-	unsigned char association_id1;	/* association ID */
-	unsigned char offset0;			/* offset of this batch of data */
-	unsigned char offset1;			/* offset of this batch of data */
-	unsigned char count0;			/* count of data in this packet */
-	unsigned char count1;			/* count of data in this packet */
-    char data[DATA_SIZE];  /* string data returned with packet */
-	unsigned int authenticator[AUTH_SIZE];
-};
 
 // Function prototypes
 
