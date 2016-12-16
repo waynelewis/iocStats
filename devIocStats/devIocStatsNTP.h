@@ -19,7 +19,6 @@
 
 #include <string>
 #include <vector>
-#include <memory>
 #include <map>
 
 #include <epicsTime.h>
@@ -46,9 +45,6 @@ struct aStatsNTP
 };
 typedef struct aStatsNTP aStatsNTP;
 
-//TODO: Fix the name of ntp_peer_data_t as it is used for both 
-//      peer and system data
-//      Or create ntp_sys_data_t of the same type?
 typedef std::map<std::string, std::string> ntp_peer_data_t;
 typedef std::map<std::string, std::string> ntp_sys_data_t;
 
@@ -57,18 +53,13 @@ typedef std::map<std::string, std::string> ntp_sys_data_t;
 struct ntpStatus {
         epicsTime updateTime;
         bool ntpDaemonOk;
-        //int ntpSyncStatus;
         std::vector<ntp_peer_data_t> ntp_peer_data;
+        ntp_sys_data_t ntp_sys_data;
         // TODO: Work out method of creating default value
         //ntpStatus() :ntpDaemonOk(false), ntpStratum(16) {}
-        ntp_sys_data_t ntp_sys_data;
-        ntpStatus() {}
 };
 
-
-/* NTP status functions */
-bool devIocStatsGetNtpStats(ntpStatus *pval);
-
+/* Definitions */
 #define NTP_PORT    123
 
 #define FALSE       0
@@ -110,25 +101,13 @@ bool devIocStatsGetNtpStats(ntpStatus *pval);
 #define NTP_PARAMETER_OK            0
 #define NTP_PARAMETER_ERROR         -1
 
-#define VER_MASK                    0x38
-#define VER_SHIFT                   2
-#define MODE_MASK                   0x07
-#define MODE_SHIFT                  0
-#define OP_CODE_MASK                0x1f
-#define OP_CODE_SHIFT               0
 #define MORE_MASK                   0x20
-#define MORE_SHIFT                  5
-#define ERROR_MASK                  0x40
-#define ERROR_SHIFT                 6
 #define RESPONSE_MASK               0x80
-#define RESPONSE_SHIFT              7
 #define PEER_SEL_MASK               0x0700
 #define PEER_SEL_SHIFT              8
 
-#define DATA_SIZE 468
-#define AUTH_SIZE 96
-
 // Function prototypes
+bool devIocStatsGetNtpStats(ntpStatus *pval);
 
 int ntp_get_ai_value(
         double *val,
@@ -152,8 +131,6 @@ bool get_peer_stats(const std::vector<epicsUInt16> &association_ids,
 void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
         const std::vector<epicsUInt16>& peer_selections,
         ntpStatus *pval);
-
-unsigned short reverse(unsigned short);
 
 epicsShareFunc void devIocStatsNTPSetPollRate(const int rate);
 epicsShareFunc void devIocStatsNTPDisable(void);
