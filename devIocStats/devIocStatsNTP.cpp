@@ -294,7 +294,7 @@ static long ntp_init(int pass)
 static long ntp_init_record(dbCommon *prec)
 {
     std::string	parm;
-    std::auto_ptr<std::string> parameter (new std::string);
+    std::string parameter;
     size_t  index;
     int     peer;
     pvtNTPArea* pvtNTP;
@@ -317,18 +317,19 @@ static long ntp_init_record(dbCommon *prec)
         if (index == std::string::npos)
         {
             // System variable
-            *parameter = parm;
+            parameter = parm;
             peer = -1;
         }
         else
         {
             // Peer variable
-            *parameter = parm.substr(0, index);
+            parameter = parm.substr(0, index);
             peer = (int)strtoul(parm.substr(index+1).c_str(), NULL, 10);
         }
 
         // Find the correct function in the list
-            pvtNTP=(pvtNTPArea*)malloc(sizeof(pvtNTPArea));
+
+            pvtNTP = new pvtNTPArea;
             pvtNTP->parameter = parameter;
             pvtNTP->peer = peer;
 
@@ -366,7 +367,7 @@ static long ntp_read_ai(aiRecord* prec)
 
     if(pvtNTP->peer<0 || (unsigned)pvtNTP->peer < ntp_poller.data->ntp_peer_data.size()) {
         double val;
-        if (ntp_get_ai_value(&val, *(pvtNTP->parameter).get(), pvtNTP->peer) == NTP_PARAMETER_OK) {
+        if (ntp_get_ai_value(&val, pvtNTP->parameter, pvtNTP->peer) == NTP_PARAMETER_OK) {
             prec->val = val;
         }
         else  {
@@ -530,10 +531,15 @@ void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
     pval->ntp_sys_data["ntp_num_good_peers"] = s.str();
 
     // If we have at least one good peer, set the sync status to good
-    if (reference_peer == TRUE)
-        pval->ntpSyncStatus = NTP_SYNC_STATUS_NTP;
-    else
-        pval->ntpSyncStatus = NTP_SYNC_STATUS_UNSYNC;
+    s.str("");
+    if (reference_peer == TRUE) {
+        s << NTP_SYNC_STATUS_NTP;
+        pval->ntp_sys_data["ntp_sync_status"] = s.str();
+    }
+    else {
+        s << NTP_SYNC_STATUS_UNSYNC;
+        pval->ntp_sys_data["ntp_sync_status"] = s.str();
+    }
 
     if(ntp_verb>1)
         errlogPrintf(" Peers %s/%s %s\n",

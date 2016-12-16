@@ -29,8 +29,7 @@ using std::string;
 // Record interface structures 
 struct pvtNTPArea
 {
-    //unsigned index;
-    std::auto_ptr<string> parameter;
+    std::string parameter;
     int peer; // -1 for data not associated with a peer
 };
 typedef struct pvtNTPArea pvtNTPArea;
@@ -58,12 +57,12 @@ typedef std::map<std::string, std::string> ntp_sys_data_t;
 struct ntpStatus {
         epicsTime updateTime;
         bool ntpDaemonOk;
-        int ntpSyncStatus;
+        //int ntpSyncStatus;
         std::vector<ntp_peer_data_t> ntp_peer_data;
         // TODO: Work out method of creating default value
         //ntpStatus() :ntpDaemonOk(false), ntpStratum(16) {}
         ntp_sys_data_t ntp_sys_data;
-        ntpStatus() :ntpDaemonOk(false) {}
+        ntpStatus() {}
 };
 
 
