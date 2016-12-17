@@ -50,13 +50,8 @@
 #include <limits>
 #include <stdexcept>
 
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <errlog.h>
 
-#include <epicsMath.h>
 #include <epicsExit.h>
 #include <epicsThread.h>
 #include <epicsGuard.h>
