@@ -1,11 +1,8 @@
-/*************************************************************************\
-* Copyright (c) 2016 Osprey DCS
-* TODO: Change this to the FRIB copyright
-*
-* EPICS BASE Versions 3.13.7
-* and higher are distributed subject to a Software License Agreement found
-* in file LICENSE that is included with this distribution.
-\*************************************************************************/
+/*
+ * This software is Copyright by the Board of Trustees of Michigan
+ * State University (c) Copyright 2015.
+ *   
+ */
 
 /* devIocStatsNTP.c - device support routines for NTP statistics
  *
@@ -13,9 +10,9 @@
  * Uses NTP protocol mode 6
  * See RFC1305 Appendix B  "NTP Control Messages"
  */
+
 /*
- * TODO: Add Michael to author list
- *	Author: Wayne Lewis
+ *	Authors: Wayne Lewis and Michael Davidsaver
  *	Date:  2016-11-06
  */
 

@@ -1,17 +1,15 @@
 #ifndef DEV_IOC_STATS_NTP_H 
 #define DEV_IOC_STATS_NTP_H
 
-/*************************************************************************\
-* Copyright (c) 2016 Osprey DCS
-*
-* EPICS BASE Versions 3.13.7
-* and higher are distributed subject to a Software License Agreement found
-* in file LICENSE that is included with this distribution.
-\*************************************************************************/
-
-/* devIocStatsNTP.cpp - device support routines for NTP statistics - based on */
 /*
- *  Author: Wayne Lewis
+ * This software is Copyright by the Board of Trustees of Michigan
+ * State University (c) Copyright 2015.
+ *   
+ */
+
+/* devIocStatsNTP.h - device support routines for NTP statistics 
+ *
+ *  Authors: Wayne Lewis and Michael Davidsaver
  *  Date:  2016-11-06
  */
 
