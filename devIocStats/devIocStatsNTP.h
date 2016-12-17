@@ -23,6 +23,8 @@
 
 #include <epicsTime.h>
 
+#include <ntphelper.h>
+
 using std::string;
 
 // Record interface structures 
@@ -45,18 +47,16 @@ struct aStatsNTP
 };
 typedef struct aStatsNTP aStatsNTP;
 
-typedef std::map<std::string, std::string> ntp_peer_data_t;
-typedef std::map<std::string, std::string> ntp_sys_data_t;
-
 // Data containing structures
 
 struct ntpStatus {
         epicsTime updateTime;
         bool ntpDaemonOk;
-        std::vector<ntp_peer_data_t> ntp_peer_data;
-        ntp_sys_data_t ntp_sys_data;
-        // TODO: Work out method of creating default value
-        //ntpStatus() :ntpDaemonOk(false), ntpStratum(16) {}
+        ntp_data_t ntp_sys_data;
+        std::vector<ntp_data_t> ntp_peer_data;
+
+        // Initialize some of the values
+        ntpStatus() :ntpDaemonOk(false) {}
 };
 
 /* Definitions */

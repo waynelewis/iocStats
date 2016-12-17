@@ -218,7 +218,7 @@ long ntp_monitor_report(int level)
             return 0;
 
         for(size_t i=0; i<data.ntp_peer_data.size(); i++) {
-            ntp_peer_data_t ntp_peer_data = data.ntp_peer_data[i];
+            ntp_data_t ntp_peer_data = data.ntp_peer_data[i];
             printf(" Peer %19s statum=%s delay=%s offset=%s jitter=%s\n",
                    ntp_peer_data["srcadr"].c_str(), 
                    ntp_peer_data["stratum"].c_str(), 
@@ -461,16 +461,16 @@ bool devIocStatsGetNtpStats (ntpStatus *pval)
 {
     std::vector<epicsUInt16> association_ids;
     std::vector<epicsUInt16> peer_selections;
-    string ntp_data;
+    string ntp_data_str;
 
     // Perform an NTP variable query to get the system level status
 
-    if(!do_ntp_query( NTP_OP_READ_VAR, NTP_SYS_ASSOCIATION_ID, &ntp_data)) {
+    if(!do_ntp_query( NTP_OP_READ_VAR, NTP_SYS_ASSOCIATION_ID, &ntp_data_str)) {
         if(ntp_verb>0)
             errlogPrintf("Failed to get system status\n");
         // continue and try to fetch associations
     } else {
-        pval->ntp_sys_data = ntp_parse_peer_data(ntp_data);
+        pval->ntp_sys_data = ntp_parse_peer_data(ntp_data_str);
     }
 
     // Perform an NTP status query to get the association IDs
@@ -565,7 +565,7 @@ struct Socket {
 
 bool do_ntp_query(unsigned char op_code,
         unsigned short association_id,
-        string *ntp_data
+        string *ntp_data_str
         )
 {
     struct sockaddr_in ntp_socket;
@@ -693,12 +693,13 @@ bool do_ntp_query(unsigned char op_code,
                 &ntp_message[12]);
     }
 
-    *ntp_data = ntp_assembler.tostring();
+    *ntp_data_str = ntp_assembler.tostring();
     return true;
 }
 
 // Get the following statistics from the peers:
 // - largest offset
+// - largest delay
 // - largest jitter
 // - minimum stratum
 //
@@ -714,7 +715,7 @@ bool get_peer_stats(
         ntpStatus *pval
         )
 {
-    string ntp_data;
+    string ntp_data_str;
 
     assert(pval->ntp_peer_data.size()==association_ids.size());
 
@@ -726,24 +727,21 @@ bool get_peer_stats(
     // Iterate through the associated peers and gather the required data
     for (unsigned i = 0; i < association_ids.size(); i++)
     {
-        //ntpPeerData& peer = pval->ntp_peer_data[i];
-        //ntp_peer_data_t ntp_peer_data = pval->ntp_peer_data[i];
-
         if(!do_ntp_query(
                 NTP_OP_READ_STS, 
                 association_ids[i], 
-                &ntp_data))
+                &ntp_data_str))
             return false;
 
         // Get the map of the data from the query
-        ntp_peer_data_t ntp_peer_data (ntp_parse_peer_data(ntp_data));
+        ntp_data_t ntp_peer_data (ntp_parse_peer_data(ntp_data_str));
         
         // Append additional peer info to the existing data 
         pval->ntp_peer_data[i].insert(
                 ntp_peer_data.begin(), 
                 ntp_peer_data.end());
 
-        ntp_peer_data_t::const_iterator it;
+        ntp_data_t::const_iterator it;
 
         std::ostringstream name;
         it = ntp_peer_data.find("srcadr");
@@ -804,7 +802,7 @@ bool get_association_ids(std::vector<unsigned short>& association_ids,
         )
 {
     unsigned int i;
-    string ntp_data;
+    string ntp_data_str;
 
     // Finds the integer values used to identify the NTP peer servers
     //
@@ -812,13 +810,13 @@ bool get_association_ids(std::vector<unsigned short>& association_ids,
     if(!do_ntp_query(
                 NTP_OP_READ_STS, 
                 NTP_SYS_ASSOCIATION_ID, 
-                &ntp_data))
+                &ntp_data_str))
         return false;
 
     // Extract the association IDs from the response
-    for (i = 0; i < ntp_data.length(); i += 4)
+    for (i = 0; i < ntp_data_str.length(); i += 4)
     {
-        unsigned short *ppeer = (unsigned short*)&ntp_data[i];
+        unsigned short *ppeer = (unsigned short*)&ntp_data_str[i];
         unsigned short aid = ntohs(ppeer[0]),
                        sts = ntohs(ppeer[1]);
 

@@ -46,9 +46,9 @@ std::string strip(const std::string& s)
 
 } // namespace
 
-ntp_peer_data_t ntp_parse_peer_data(const std::string& e)
+ntp_data_t ntp_parse_peer_data(const std::string& e)
 {
-    ntp_peer_data_t ret;
+    ntp_data_t ret;
 
     lines_t params;
     split(e, params);

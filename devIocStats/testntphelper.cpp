@@ -17,9 +17,9 @@ void testEqualx(const A& a, const B& b, const char *sa, const char *sb)
 }
 #define testEqual(A,B) testEqualx(A, B, #A, #B)
 
-void testEntryEqual(const ntp_peer_data_t& values, const char *key, const char *value)
+void testEntryEqual(const ntp_data_t& values, const char *key, const char *value)
 {
-    ntp_peer_data_t::const_iterator it=values.find(key);
+    ntp_data_t::const_iterator it=values.find(key);
     if(it==values.end())
         testFail("missing key %s", key);
     else
@@ -39,7 +39,7 @@ void testParse()
                          "filtoffset= -1.33 -92.12 -1.40 -1.27 -1.46 -1.25 -1.18 -1.44,\r\n"
                          "filtdisp= 0.00 1.04 1.91 1.94 1.97 2.00 2.03 2.06\r\n";
 
-    ntp_peer_data_t values(ntp_parse_peer_data(input));
+    ntp_data_t values(ntp_parse_peer_data(input));
 
     testEqual(values.size(), 22u);
     testEntryEqual(values, "srcadr", "107.170.224.8");
@@ -54,7 +54,7 @@ void testParse2()
     // throw in some whitespace where it would not normally appear
     const char input[] = "  hello =\tworld ,\t this = a test  ";
 
-    ntp_peer_data_t values(ntp_parse_peer_data(input));
+    ntp_data_t values(ntp_parse_peer_data(input));
 
     testEqual(values.size(), 2u);
     testEntryEqual(values, "hello", "world");
@@ -67,7 +67,7 @@ void testParseError()
     // some malformed entries, which should be ignored
     const char input[] = "  hello =\tworld , foo, bar=, =baz, =, ,,\t this = a test  ";
 
-    ntp_peer_data_t values(ntp_parse_peer_data(input));
+    ntp_data_t values(ntp_parse_peer_data(input));
 
     testEqual(values.size(), 2u);
     testEntryEqual(values, "hello", "world");

@@ -6,14 +6,14 @@
 #include <map>
 #include <sstream>
 
-typedef std::map<std::string, std::string> ntp_peer_data_t;
+typedef std::map<std::string, std::string> ntp_data_t;
 
 template<typename V>
-V ntp_peer_as(const ntp_peer_data_t& map,
+V ntp_peer_as(const ntp_data_t& map,
               const std::string& key,
               const V& def)
 {
-    ntp_peer_data_t::const_iterator it = map.find(key);
+    ntp_data_t::const_iterator it = map.find(key);
     if(it==map.end())
         return def;
     std::istringstream strm(it->second);
@@ -24,7 +24,7 @@ V ntp_peer_as(const ntp_peer_data_t& map,
     return ret;
 }
 
-ntp_peer_data_t ntp_parse_peer_data(const std::string& e);
+ntp_data_t ntp_parse_peer_data(const std::string& e);
 
 struct NTPAssembler {
     typedef std::vector<unsigned char> buffer_t;
