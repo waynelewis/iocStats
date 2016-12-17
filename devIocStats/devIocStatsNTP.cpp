@@ -83,6 +83,8 @@
 #include "devIocStatsNTP.h"
 #include "ntphelper.h"
 
+using std::string;
+
 static long ntp_init(int pass);
 static long ntp_init_record(dbCommon*);
 static long ntp_read_ai(aiRecord*);
@@ -293,8 +295,8 @@ static long ntp_init(int pass)
 
 static long ntp_init_record(dbCommon *prec)
 {
-    std::string	parm;
-    std::string parameter;
+    string	parm;
+    string parameter;
     size_t  index;
     int     peer;
     pvtNTPArea* pvtNTP;
@@ -314,7 +316,7 @@ static long ntp_init_record(dbCommon *prec)
         // If there is, then the peer number will follow.
         index = parm.find(" ");
 
-        if (index == std::string::npos)
+        if (index == string::npos)
         {
             // System variable
             parameter = parm;
@@ -459,7 +461,7 @@ bool devIocStatsGetNtpStats (ntpStatus *pval)
 {
     std::vector<epicsUInt16> association_ids;
     std::vector<epicsUInt16> peer_selections;
-    std::string ntp_data;
+    string ntp_data;
 
     // Perform an NTP variable query to get the system level status
 
@@ -563,7 +565,7 @@ struct Socket {
 
 bool do_ntp_query(unsigned char op_code,
         unsigned short association_id,
-        std::string *ntp_data
+        string *ntp_data
         )
 {
     struct sockaddr_in ntp_socket;
@@ -712,7 +714,7 @@ bool get_peer_stats(
         ntpStatus *pval
         )
 {
-    std::string ntp_data;
+    string ntp_data;
 
     assert(pval->ntp_peer_data.size()==association_ids.size());
 
@@ -802,7 +804,7 @@ bool get_association_ids(std::vector<unsigned short>& association_ids,
         )
 {
     unsigned int i;
-    std::string ntp_data;
+    string ntp_data;
 
     // Finds the integer values used to identify the NTP peer servers
     //
