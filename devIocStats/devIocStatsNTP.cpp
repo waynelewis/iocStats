@@ -498,6 +498,14 @@ bool devIocStatsGetNtpStats (ntpStatus *pval)
             pval);
 }
 
+// Convert numbers to strings (in the absence of C++11 to_string())
+string make_string(double val)
+{
+    std::ostringstream s;
+    s << val;
+    return s.str();
+}
+
 void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
         const std::vector<epicsUInt16>& peer_selections,
         ntpStatus *pval)
@@ -506,39 +514,29 @@ void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
 
     bool reference_peer = FALSE;
 
-    std::ostringstream s;
-    s << association_ids.size();
-    pval->ntp_sys_data["ntp_num_peers"] = s.str();
+    pval->ntp_sys_data["ntp_num_peers"] = make_string(association_ids.size());
 
     unsigned num_good_peers = 0;
 
-    for (unsigned i = 0; i < association_ids.size(); i++)
-    {
+    for (unsigned i = 0; i < association_ids.size(); i++) {
         if (peer_selections[i] >= NTP_PEER_SEL_CANDIDATE)
             num_good_peers++;
 
         if (peer_selections[i] >= NTP_PEER_SEL_SYSPEER)
             reference_peer = TRUE;
 
-        s.str("");
-        s << peer_selections[i];
-        pval->ntp_peer_data[i]["ntp_peer_selection"] = s.str();
+        pval->ntp_peer_data[i]["ntp_peer_selection"] = make_string(peer_selections[i]);
 
     }
 
-    s.str("");
-    s << association_ids.size();
-    pval->ntp_sys_data["ntp_num_good_peers"] = s.str();
+    pval->ntp_sys_data["ntp_num_good_peers"] = make_string(association_ids.size());
 
     // If we have at least one good peer, set the sync status to good
-    s.str("");
     if (reference_peer == TRUE) {
-        s << NTP_SYNC_STATUS_NTP;
-        pval->ntp_sys_data["ntp_sync_status"] = s.str();
+        pval->ntp_sys_data["ntp_sync_status"] = make_string(NTP_SYNC_STATUS_NTP);
     }
     else {
-        s << NTP_SYNC_STATUS_UNSYNC;
-        pval->ntp_sys_data["ntp_sync_status"] = s.str();
+        pval->ntp_sys_data["ntp_sync_status"] = make_string(NTP_SYNC_STATUS_UNSYNC);
     }
 
     if(ntp_verb>1)
@@ -784,18 +782,10 @@ bool get_peer_stats(
                     ntp_peer_data["jitter"].c_str());
     }
 
-    std::ostringstream s;
-    s << max_peer_delay;
-    pval->ntp_sys_data["ntp_max_peer_delay"] = s.str();
-    s.str("");
-    s << max_peer_offset;
-    pval->ntp_sys_data["ntp_max_peer_offset"] = s.str();
-    s.str("");
-    s << max_peer_jitter;
-    pval->ntp_sys_data["ntp_max_peer_jitter"] = s.str();
-    s.str("");
-    s << min_peer_stratum;
-    pval->ntp_sys_data["ntp_min_peer_stratum"] = s.str();
+    pval->ntp_sys_data["ntp_max_peer_delay"] = make_string(max_peer_delay);
+    pval->ntp_sys_data["ntp_max_peer_offset"] = make_string(max_peer_offset);
+    pval->ntp_sys_data["ntp_max_peer_jitter"] = make_string(max_peer_jitter);
+    pval->ntp_sys_data["ntp_min_peer_stratum"] = make_string(min_peer_stratum);
 
     if(ntp_verb>2)
         errlogPrintf(" Min Ref. Stratum: %s\n Max delay: %s\n Max Offset: %s\n Max Jitter: %s\n",

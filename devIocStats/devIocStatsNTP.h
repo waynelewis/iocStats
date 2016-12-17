@@ -132,6 +132,8 @@ void parse_ntp_associations(const std::vector<epicsUInt16>& association_ids,
         const std::vector<epicsUInt16>& peer_selections,
         ntpStatus *pval);
 
+string make_string(double);
+
 epicsShareFunc void devIocStatsNTPSetPollRate(const int rate);
 epicsShareFunc void devIocStatsNTPDisable(void);
 epicsShareFunc void devIocStatsNTPEnable(void);
